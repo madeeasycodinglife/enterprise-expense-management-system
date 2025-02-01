@@ -9,6 +9,7 @@ import com.madeeasy.entity.Role;
 import com.madeeasy.entity.Token;
 import com.madeeasy.entity.TokenType;
 import com.madeeasy.entity.User;
+import com.madeeasy.exception.TokenException;
 import com.madeeasy.repository.TokenRepository;
 import com.madeeasy.repository.UserRepository;
 import com.madeeasy.service.AuthService;
@@ -165,7 +166,7 @@ public class AuthServiceImpl implements AuthService {
         validTokens.stream()
                 .filter(t -> t.getToken().equals(logOutRequest.getAccessToken()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Token not found or is expired/revoked"));
+                .orElseThrow(() -> new TokenException("Token not found or is expired/revoked"));
 
         revokeAllPreviousValidTokens(user);
     }
@@ -175,7 +176,7 @@ public class AuthServiceImpl implements AuthService {
         boolean isValid = jwtUtils.validateToken(refreshToken, jwtUtils.getUserName(refreshToken));
 
         if (!isValid) {
-            throw new RuntimeException("Token is invalid");
+            throw new TokenException("Token is invalid");
         }
         User user = userRepository.findByEmail(jwtUtils.getUserName(refreshToken)).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
         revokeAllPreviousValidTokens(user);
@@ -205,14 +206,14 @@ public class AuthServiceImpl implements AuthService {
 
         // Fetch the token from the database by the access token
         Token token = tokenRepository.findValidTokenByAccessToken(accessToken)
-                .orElseThrow(() -> new IllegalArgumentException("Token is either expired, revoked, or invalid"));
+                .orElseThrow(() -> new TokenException("Token is either expired, revoked, or invalid"));
 
         // Check if the token is expired or revoked
         if (token.isExpired()) {
-            throw new RuntimeException("Token is expired");
+            throw new TokenException("Token is expired");
         }
         if (token.isRevoked()) {
-            throw new RuntimeException("Token is revoked");
+            throw new TokenException("Token is revoked");
         }
 
         // If neither expired nor revoked, return true indicating the token is valid
