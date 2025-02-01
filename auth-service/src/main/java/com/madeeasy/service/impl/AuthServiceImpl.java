@@ -1,6 +1,7 @@
 package com.madeeasy.service.impl;
 
 import com.madeeasy.dto.request.AuthRequest;
+import com.madeeasy.dto.request.SignInRequestDTO;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.entity.Role;
 import com.madeeasy.entity.Token;
@@ -13,10 +14,16 @@ import com.madeeasy.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -27,7 +34,9 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
+    private final PasswordEncoder passwordEncoder;
     private final TokenRepository tokenRepository;
+    private final AuthenticationManager authenticationManager;
 
     @Override
     public AuthResponse singUp(AuthRequest authRequest) {
@@ -49,7 +58,7 @@ public class AuthServiceImpl implements AuthService {
         User user = User.builder()
                 .fullName(authRequest.getFullName())
                 .email(authRequest.getEmail())
-                .password(authRequest.getPassword())
+                .password(passwordEncoder.encode(authRequest.getPassword()))
                 .phone(authRequest.getPhone())
                 .isAccountNonExpired(true)
                 .isAccountNonLocked(true)
@@ -102,4 +111,42 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    public AuthResponse singIn(SignInRequestDTO signInRequest) {
+        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(signInRequest.getEmail(), signInRequest.getPassword()));
+        if (authentication.isAuthenticated()) {
+            User user = userRepository.findByEmail(signInRequest.getEmail()).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
+            revokeAllPreviousValidTokens(user);
+            String accessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getRole().name());
+            String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getRole().name());
+
+
+            Token token = Token.builder()
+                    .id(UUID.randomUUID().toString())
+                    .user(user)
+                    .token(accessToken)
+                    .isRevoked(false)
+                    .isExpired(false)
+                    .tokenType(TokenType.BEARER)
+                    .build();
+
+            tokenRepository.save(token);
+
+            return AuthResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .build();
+        } else {
+            throw new RuntimeException("Bad Credential Exception !!");
+        }
+    }
+
+    @Override
+    public void revokeAllPreviousValidTokens(User user) {
+        List<Token> tokens = tokenRepository.findAllValidTokens(user.getId());
+        tokens.forEach(token -> {
+            token.setRevoked(true);
+            token.setExpired(true);
+        });
+        tokenRepository.saveAll(tokens);
+    }
 }

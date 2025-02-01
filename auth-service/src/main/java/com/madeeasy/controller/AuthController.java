@@ -1,6 +1,7 @@
 package com.madeeasy.controller;
 
 import com.madeeasy.dto.request.AuthRequest;
+import com.madeeasy.dto.request.SignInRequestDTO;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.service.AuthService;
 import jakarta.validation.Valid;
@@ -33,4 +34,10 @@ public class AuthController {
         return ResponseEntity.ok().body(authResponse);
     }
 
+
+    @PostMapping(path = "/sign-in")
+    public ResponseEntity<?> singIn(@Valid @RequestBody SignInRequestDTO signInRequestDTO) {
+        AuthResponse authResponse = this.authService.singIn(signInRequestDTO);
+        return ResponseEntity.ok().body(authResponse);
+    }
 }
