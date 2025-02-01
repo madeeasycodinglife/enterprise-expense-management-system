@@ -3,6 +3,7 @@ package com.madeeasy.controller;
 import com.madeeasy.dto.request.AuthRequest;
 import com.madeeasy.dto.request.LogOutRequest;
 import com.madeeasy.dto.request.SignInRequestDTO;
+import com.madeeasy.dto.request.UserRequest;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.service.AuthService;
 import com.madeeasy.util.ValidationUtils;
@@ -69,5 +70,21 @@ public class AuthController {
             return ResponseEntity.ok().body(true);
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(false);
+    }
+
+    @PatchMapping(path = "/partial-update/{emailId}")
+    public ResponseEntity<?> partiallyUpdateUser(@PathVariable("emailId") String emailId,
+                                                 @Valid @RequestBody UserRequest userRequest) {
+        Map<String, String> validatedEmail = ValidationUtils.validateEmail(emailId);
+        if (!validatedEmail.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedEmail);
+        }
+        AuthResponse authResponse = this.authService.partiallyUpdateUser(emailId, userRequest);
+        if (authResponse.getStatus() == HttpStatus.CONFLICT) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(authResponse);
+        } else if (authResponse.getStatus() == HttpStatus.BAD_REQUEST) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(authResponse);
+        }
+        return ResponseEntity.ok().body(authResponse);
     }
 }

@@ -3,6 +3,7 @@ package com.madeeasy.service.impl;
 import com.madeeasy.dto.request.AuthRequest;
 import com.madeeasy.dto.request.LogOutRequest;
 import com.madeeasy.dto.request.SignInRequestDTO;
+import com.madeeasy.dto.request.UserRequest;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.entity.Role;
 import com.madeeasy.entity.Token;
@@ -218,4 +219,109 @@ public class AuthServiceImpl implements AuthService {
         return true;
     }
 
+    public AuthResponse partiallyUpdateUser(String emailId, UserRequest userRequest) {
+
+        log.info("UserRequest : {}", userRequest);
+
+        User user = userRepository.findByEmail(emailId).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
+
+        if (userRequest.getFullName() != null) {
+            user.setFullName(userRequest.getFullName());
+        }
+
+
+        boolean emailExists = false;
+        boolean phoneExists = false;
+
+        // Check if the new email already exists and belongs to another user
+        if (userRequest.getEmail() != null && !userRequest.getEmail().equals(user.getEmail())) {
+            emailExists = userRepository.existsByEmail(userRequest.getEmail());
+        }
+
+        // Check if the new phone number already exists and belongs to another user
+        if (userRequest.getPhone() != null && !userRequest.getPhone().equals(user.getPhone())) {
+            phoneExists = userRepository.existsByPhone(userRequest.getPhone());
+        }
+
+        // Handle the case where both email and phone already exist
+        if (emailExists && phoneExists) {
+            return AuthResponse.builder()
+                    .status(HttpStatus.CONFLICT)
+                    .message("User with Email: " + userRequest.getEmail() + " and Phone: " + userRequest.getPhone() + " already exist.")
+                    .build();
+        }
+
+        // Handle the case where only email exists
+        if (emailExists) {
+            return AuthResponse.builder()
+                    .status(HttpStatus.CONFLICT)
+                    .message("User with Email: " + userRequest.getEmail() + " already exists.")
+                    .build();
+        }
+
+        // Handle the case where only phone exists
+        if (phoneExists) {
+            return AuthResponse.builder()
+                    .status(HttpStatus.CONFLICT)
+                    .message("User with Phone: " + userRequest.getPhone() + " already exists.")
+                    .build();
+        }
+
+        if (userRequest.getEmail() != null) {
+            user.setEmail(userRequest.getEmail());
+        }
+        if (userRequest.getPhone() != null) {
+            user.setPhone(userRequest.getPhone());
+        }
+        if (userRequest.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(userRequest.getPassword()));
+        }
+        if (userRequest.getRole() != null) {
+            // Convert all roles to uppercase
+            String normalizedRole = userRequest.getRole().toUpperCase();
+
+            // Check if roles contain valid enum names
+            if (!normalizedRole.contains(Role.EMPLOYEE.name()) &&
+                    !normalizedRole.contains(Role.MANAGER.name()) &&
+                    !normalizedRole.contains(Role.FINANCE.name()) &&
+                    !normalizedRole.contains(Role.ADMIN.name())) {
+                return AuthResponse.builder()
+                        .message("Invalid roles provided. Allowed roles are " + Arrays.toString(Role.values()))
+                        .status(HttpStatus.BAD_REQUEST)
+                        .build();
+            }
+            user.setRole(Role.valueOf(userRequest.getRole()));
+        }
+
+
+        User savedUser = userRepository.save(user);
+
+        if (userRequest.getRole() != null || userRequest.getEmail() != null) {
+            revokeAllPreviousValidTokens(savedUser);
+            String accessToken = jwtUtils.generateAccessToken(savedUser.getEmail(), savedUser.getRole().name());
+            String refreshToken = jwtUtils.generateRefreshToken(savedUser.getEmail(), savedUser.getRole().name());
+
+
+            Token token = Token.builder()
+                    .id(UUID.randomUUID().toString())
+                    .user(savedUser)
+                    .token(accessToken)
+                    .isRevoked(false)
+                    .isExpired(false)
+                    .tokenType(TokenType.BEARER)
+                    .build();
+
+            tokenRepository.save(token);
+
+            return AuthResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .build();
+        }
+
+        return AuthResponse.builder()
+                .status(HttpStatus.OK)
+                .message("User updated successfully")
+                .build();
+    }
 }
