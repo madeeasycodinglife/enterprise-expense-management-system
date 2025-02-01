@@ -16,4 +16,6 @@ public interface AuthService {
     void logOut(LogOutRequest logOutRequest);
 
     AuthResponse refreshToken(String refreshToken);
+
+    boolean validateAccessToken(String accessToken);
 }

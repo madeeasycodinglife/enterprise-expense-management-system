@@ -57,4 +57,17 @@ public class AuthController {
         AuthResponse authResponse = this.authService.refreshToken(refreshToken);
         return ResponseEntity.ok().body(authResponse);
     }
+
+    @PostMapping(path = "/validate-access-token/{accessToken}")
+    public ResponseEntity<?> validateAccessToken(@PathVariable("accessToken") String accessToken) {
+        Map<String, String> validatedAccessToken = ValidationUtils.validateAccessToken(accessToken);
+        if (!validatedAccessToken.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedAccessToken);
+        }
+        boolean flag = this.authService.validateAccessToken(accessToken);
+        if (flag) {
+            return ResponseEntity.ok().body(true);
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(false);
+    }
 }

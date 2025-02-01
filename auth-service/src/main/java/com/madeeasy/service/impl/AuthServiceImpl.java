@@ -14,7 +14,6 @@ import com.madeeasy.service.AuthService;
 import com.madeeasy.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -200,4 +199,23 @@ public class AuthServiceImpl implements AuthService {
                 .refreshToken(newRefreshToken)
                 .build();
     }
+
+    public boolean validateAccessToken(String accessToken) {
+
+        // Fetch the token from the database by the access token
+        Token token = tokenRepository.findValidTokenByAccessToken(accessToken)
+                .orElseThrow(() -> new IllegalArgumentException("Token is either expired, revoked, or invalid"));
+
+        // Check if the token is expired or revoked
+        if (token.isExpired()) {
+            throw new RuntimeException("Token is expired");
+        }
+        if (token.isRevoked()) {
+            throw new RuntimeException("Token is revoked");
+        }
+
+        // If neither expired nor revoked, return true indicating the token is valid
+        return true;
+    }
+
 }
