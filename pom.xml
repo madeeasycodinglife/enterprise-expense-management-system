@@ -11,6 +11,7 @@
 	<groupId>com.madeeasy</groupId>
 	<artifactId>expense-management-system</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
 	<name>expense-management-system</name>
 	<description>enterprise expense management system </description>
 	<url/>
@@ -20,6 +21,9 @@
 	<developers>
 		<developer/>
 	</developers>
+	<modules>
+		<module>auth-service</module>
+	</modules>
 	<scm>
 		<connection/>
 		<developerConnection/>
