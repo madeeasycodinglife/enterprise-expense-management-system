@@ -14,6 +14,7 @@ import com.madeeasy.service.AuthService;
 import com.madeeasy.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -167,5 +168,36 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Token not found or is expired/revoked"));
 
         revokeAllPreviousValidTokens(user);
+    }
+
+    public AuthResponse refreshToken(String refreshToken) {
+
+        boolean isValid = jwtUtils.validateToken(refreshToken, jwtUtils.getUserName(refreshToken));
+
+        if (!isValid) {
+            throw new RuntimeException("Token is invalid");
+        }
+        User user = userRepository.findByEmail(jwtUtils.getUserName(refreshToken)).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
+        revokeAllPreviousValidTokens(user);
+        String accessToken = jwtUtils.generateAccessToken(user.getEmail(), user.getRole().name());
+        String newRefreshToken = jwtUtils.generateRefreshToken(user.getEmail(), user.getRole().name());
+
+
+        Token token = Token.builder()
+                .id(UUID.randomUUID().toString())
+                .user(user)
+                .token(accessToken)
+                .isRevoked(false)
+                .isExpired(false)
+                .tokenType(TokenType.BEARER)
+                .build();
+
+        tokenRepository.save(token);
+
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(newRefreshToken)
+                .build();
     }
 }

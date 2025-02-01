@@ -5,14 +5,14 @@ import com.madeeasy.dto.request.LogOutRequest;
 import com.madeeasy.dto.request.SignInRequestDTO;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.service.AuthService;
+import com.madeeasy.util.ValidationUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -46,5 +46,15 @@ public class AuthController {
     public ResponseEntity<?> logOut(@Valid @RequestBody LogOutRequest logOutRequest) {
         this.authService.logOut(logOutRequest);
         return ResponseEntity.ok().body("Logged out");
+    }
+
+    @PostMapping(path = "/refresh-token/{refreshToken}")
+    public ResponseEntity<?> refreshToken(@PathVariable("refreshToken") String refreshToken) {
+        Map<String, String> validatedRefreshToken = ValidationUtils.validateRefreshToken(refreshToken);
+        if (!validatedRefreshToken.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedRefreshToken);
+        }
+        AuthResponse authResponse = this.authService.refreshToken(refreshToken);
+        return ResponseEntity.ok().body(authResponse);
     }
 }

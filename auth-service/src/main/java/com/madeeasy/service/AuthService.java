@@ -14,4 +14,6 @@ public interface AuthService {
     void revokeAllPreviousValidTokens(User user);
 
     void logOut(LogOutRequest logOutRequest);
+
+    AuthResponse refreshToken(String refreshToken);
 }
