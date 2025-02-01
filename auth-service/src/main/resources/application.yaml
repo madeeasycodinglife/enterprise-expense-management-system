@@ -1,4 +1,28 @@
+server:
+  port: ${SERVER_PORT:8081}
+
 spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:auth-service}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:sa}
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:create-drop}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+  h2:
+    console:
+      path: ${SPRING_H2_CONSOLE_PATH:/h2-console}
+      enabled: ${SPRING_H2_CONSOLE_ENABLED:true}
+      settings:
+        web-allow-others: true
+
+  web:
+    resources:
+      add-mappings: ${SPRING_WEB_RESOURCES_ADD_MAPPINGS:false}
+
   output:
     ansi:
       enabled: ALWAYS
