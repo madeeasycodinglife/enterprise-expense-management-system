@@ -1,6 +1,7 @@
 package com.madeeasy.service.impl;
 
 import com.madeeasy.dto.request.AuthRequest;
+import com.madeeasy.dto.request.LogOutRequest;
 import com.madeeasy.dto.request.SignInRequestDTO;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.entity.Role;
@@ -148,5 +149,23 @@ public class AuthServiceImpl implements AuthService {
             token.setExpired(true);
         });
         tokenRepository.saveAll(tokens);
+    }
+
+    public void logOut(LogOutRequest logOutRequest) {
+
+        String email = logOutRequest.getEmail();
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
+
+        jwtUtils.validateToken(logOutRequest.getAccessToken(), jwtUtils.getUserName(logOutRequest.getAccessToken()));
+        // Fetch all valid tokens for the user
+        List<Token> validTokens = tokenRepository.findAllValidTokens(user.getId());
+
+        // Check if the provided access token is in the list of valid tokens
+        validTokens.stream()
+                .filter(t -> t.getToken().equals(logOutRequest.getAccessToken()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Token not found or is expired/revoked"));
+
+        revokeAllPreviousValidTokens(user);
     }
 }

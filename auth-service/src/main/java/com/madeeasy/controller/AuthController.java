@@ -1,6 +1,7 @@
 package com.madeeasy.controller;
 
 import com.madeeasy.dto.request.AuthRequest;
+import com.madeeasy.dto.request.LogOutRequest;
 import com.madeeasy.dto.request.SignInRequestDTO;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.service.AuthService;
@@ -39,5 +40,11 @@ public class AuthController {
     public ResponseEntity<?> singIn(@Valid @RequestBody SignInRequestDTO signInRequestDTO) {
         AuthResponse authResponse = this.authService.singIn(signInRequestDTO);
         return ResponseEntity.ok().body(authResponse);
+    }
+
+    @PostMapping(path = "/log-out")
+    public ResponseEntity<?> logOut(@Valid @RequestBody LogOutRequest logOutRequest) {
+        this.authService.logOut(logOutRequest);
+        return ResponseEntity.ok().body("Logged out");
     }
 }
