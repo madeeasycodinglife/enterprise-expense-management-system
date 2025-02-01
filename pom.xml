@@ -25,6 +25,7 @@
         <module>auth-service</module>
         <module>eureka-server</module>
         <module>expense-service</module>
+        <module>company-service</module>
     </modules>
     <scm>
         <connection/>
