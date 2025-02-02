@@ -1,11 +1,13 @@
 package com.madeeasy.util;
 
 
+import com.madeeasy.exception.TokenValidationException;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -82,29 +84,28 @@ public class JwtUtils {
             // Invalid JWT token
             // Log or handle the error as needed
             logger.warn("Invalid JWT token: {}", e.getMessage());
-//            throw new TokenValidationException("Invalid JWT token", HttpStatus.UNAUTHORIZED);
+            throw new TokenValidationException("Invalid JWT token", HttpStatus.UNAUTHORIZED);
         } catch (ExpiredJwtException e) {
             // JWT token is expired
             // Log or handle the error as needed
             logger.warn("JWT token is expired: {}", e.getMessage());
-//            throw new TokenValidationException("JWT token is expired", HttpStatus.UNAUTHORIZED);
+            throw new TokenValidationException("JWT token is expired", HttpStatus.UNAUTHORIZED);
         } catch (UnsupportedJwtException e) {
             // JWT token is unsupported
             // Log or handle the error as needed
             logger.warn("JWT token is unsupported: {}", e.getMessage());
-//            throw new TokenValidationException("JWT token is unsupported", HttpStatus.UNAUTHORIZED);
+            throw new TokenValidationException("JWT token is unsupported", HttpStatus.UNAUTHORIZED);
         } catch (IllegalArgumentException e) {
             // JWT claims string is empty
             // Log or handle the error as needed
             logger.warn("JWT claims string is empty: {}", e.getMessage());
-//            throw new TokenValidationException("JWT claims string is empty", HttpStatus.UNAUTHORIZED);
+            throw new TokenValidationException("JWT claims string is empty", HttpStatus.UNAUTHORIZED);
         } catch (SignatureException e) {
             // JWT signature validation failed
             // Log or handle the error as needed
             logger.warn("JWT signature validation failed: {}", e.getMessage());
-//            throw new TokenValidationException("JWT signature validation failed", HttpStatus.UNAUTHORIZED);
+            throw new TokenValidationException("JWT signature validation failed", HttpStatus.UNAUTHORIZED);
         }
-        return null;
     }
 
     private SecretKey getSignKey() {

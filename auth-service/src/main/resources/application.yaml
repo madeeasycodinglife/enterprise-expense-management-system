@@ -26,3 +26,26 @@ spring:
   output:
     ansi:
       enabled: ALWAYS
+
+
+security:
+  authorization:
+    paths:
+      - path: /auth-service/sign-up
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:}
+      - path: /auth-service/sign-in
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNIN_ROLES:}
+      - path: /auth-service/log-out
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_LOGOUT_ROLES:}
+      - path: /auth-service/validate-access-token/**
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_VALIDATE_ACCESS_TOKEN_ROLES:}
+      - path: /auth-service/refresh-token/**
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_REFRESH_TOKEN_ROLES:}
+      - path: /auth-service/partial-update/**
+        method: PATCH
+        roles: ${SECURITY_AUTHORIZATION_PATHS_PARTIAL_UPDATE_ROLES:EMPLOYEE,MANAGER,FINANCE,ADMIN}
