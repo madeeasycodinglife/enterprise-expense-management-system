@@ -21,16 +21,24 @@ public class NotificationServiceImpl implements NotificationService {
     private final JavaMailSender mailSender;
 
     @Override
-    public void sendApprovalNotification(Long expenseId) {
+    public void sendApprovalNotification(Long expenseId,
+                                         String title,
+                                         String description,
+                                         BigDecimal amount,
+                                         String category,
+                                         String expenseDate,
+                                         String emailId,
+                                         String approveLink,
+                                         String rejectLink) {
         // Change the URLs to point to the NotificationController
         String approvalLink = "http://localhost:8084/notification-service/approve?expenseId=" + expenseId;  // Change port to match your NotificationController's port
         String rejectionLink = "http://localhost:8084/notification-service/reject?expenseId=" + expenseId;  // Change port to match your NotificationController's port
 
-        String emailContent = generateApprovalEmail("Pabitra Bera", "Petrol",
-                BigDecimal.valueOf(4545.00), approvalLink, rejectionLink);
+        String emailContent = generateApprovalEmail("Pabitra Bera", title,
+                amount, approvalLink, rejectionLink);
 
         try {
-            sendEmail("pabitrabera2001@gmail.com", "🚀 Expense Approval Required", emailContent);
+            sendEmail(emailId, "🚀 Expense Approval Required", emailContent);
         } catch (MessagingException e) {
             log.error("Failed to send approval email", e);
         }
