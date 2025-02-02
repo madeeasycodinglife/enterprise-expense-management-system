@@ -19,3 +19,6 @@ spring:
       enabled: ${SPRING_H2_CONSOLE_ENABLED:true}
       settings:
         web-allow-others: true
+  output:
+    ansi:
+      enabled: ALWAYS
