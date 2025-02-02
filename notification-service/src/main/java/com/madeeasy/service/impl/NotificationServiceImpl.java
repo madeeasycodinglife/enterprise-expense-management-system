@@ -28,17 +28,17 @@ public class NotificationServiceImpl implements NotificationService {
                                          String category,
                                          String expenseDate,
                                          String emailId,
-                                         String approveLink,
+                                         String approvalLink,
                                          String rejectLink) {
-        // Change the URLs to point to the NotificationController
-        String approvalLink = "http://localhost:8084/notification-service/approve?expenseId=" + expenseId;  // Change port to match your NotificationController's port
-        String rejectionLink = "http://localhost:8084/notification-service/reject?expenseId=" + expenseId;  // Change port to match your NotificationController's port
+//        // Change the URLs to point to the NotificationController
+//        String approvalLink = "http://localhost:8084/notification-service/approve?expenseId=" + expenseId;  // Change port to match your NotificationController's port
+//        String rejectionLink = "http://localhost:8084/notification-service/reject?expenseId=" + expenseId;  // Change port to match your NotificationController's port
 
         String emailContent = generateApprovalEmail("Pabitra Bera", title,
-                amount, approvalLink, rejectionLink);
+                amount, approvalLink, rejectLink);
 
         try {
-            sendEmail(emailId, "🚀 Expense Approval Required", emailContent);
+            sendEmail(emailId == null ? "pabitrabera2001@gmail.com" : emailId, "🚀 Expense Approval Required", emailContent);
         } catch (MessagingException e) {
             log.error("Failed to send approval email", e);
         }

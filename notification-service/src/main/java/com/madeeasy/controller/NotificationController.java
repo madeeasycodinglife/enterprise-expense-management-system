@@ -19,7 +19,7 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     // Endpoint to receive the request body (including expense details, approve/reject links)
-    @PostMapping
+    @PostMapping(path = "/")
     public ResponseEntity<?> approveExpenseTest(@RequestBody ApprovalRequestDTO approvalRequestDTO) {
         // Extract the expense details (the full string or as individual fields)
         String expenseDetails = approvalRequestDTO.getExpenseDetails();
@@ -58,13 +58,14 @@ public class NotificationController {
                 emailId = detail.split("=")[1];
             }
         }
-
+        System.out.println("Expense details: " + expenseId + ", " + title + ", " + description + ", " + amount + ", " + category + ", " + expenseDate + ", " + emailId);
         // Process the approval/rejection links
         String approveLink = approvalRequestDTO.getApproveLink();
         String rejectLink = approvalRequestDTO.getRejectLink();
 
+        System.out.println("approvalLink: " + approveLink + ", rejectLink: " + rejectLink);
         // Call the service to send the approval/rejection email or notification
-        notificationService.sendApprovalNotification(expenseId, title, description, amount, category, expenseDate,emailId, approveLink, rejectLink);
+        notificationService.sendApprovalNotification(expenseId, title, description, amount, category, expenseDate, emailId, approveLink, rejectLink);
 
         return ResponseEntity.ok().build();
     }

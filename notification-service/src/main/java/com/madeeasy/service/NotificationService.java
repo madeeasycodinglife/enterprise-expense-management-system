@@ -10,6 +10,6 @@ public interface NotificationService {
                                   String category,
                                   String expenseDate,
                                   String emailId,
-                                  String approveLink,
+                                  String approvalLink,
                                   String rejectLink);
 }
