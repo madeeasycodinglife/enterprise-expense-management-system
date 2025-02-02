@@ -27,6 +27,7 @@
         <module>expense-service</module>
         <module>company-service</module>
         <module>notification-service</module>
+        <module>approval-service</module>
     </modules>
     <scm>
         <connection/>

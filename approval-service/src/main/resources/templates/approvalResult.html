@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Approval Status</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- For icons -->
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 30px;
+            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h2 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .status-icon {
+            font-size: 40px;
+            margin-bottom: 20px;
+        }
+
+        .approved {
+            color: #28a745; /* Green for approved */
+        }
+
+        .rejected {
+            color: #dc3545; /* Red for rejected */
+        }
+
+        .error {
+            color: #ffc107; /* Yellow for errors */
+        }
+
+        .message {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .action-btn {
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .action-btn.approve {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .action-btn.reject {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+        }
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="status-icon">
+        <i class="fas" th:class="${action == 'approved' ? 'fa-check-circle approved' : action == 'rejected' ? 'fa-times-circle rejected' : 'fa-exclamation-circle error'}"></i>
+    </div>
+    <h2>Expense <span th:text="${action}">Approval</span> Status</h2>
+    <p class="message" th:text="${result}">Processing...</p>
+
+    <div>
+        <button class="action-btn approve" th:if="${action == 'approved'}" disabled>Approved</button>
+        <button class="action-btn reject" th:if="${action == 'rejected'}" disabled>Rejected</button>
+        <button class="action-btn" th:if="${action == 'error'}" onclick="window.location.href='/approval-service/approve?expenseId=1&email=user@example.com'">Try Again</button>
+    </div>
+</div>
+</body>
+</html>

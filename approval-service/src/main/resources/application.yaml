@@ -1,0 +1,33 @@
+server:
+  port: ${SERVER_PORT:8085}
+spring:
+  application:
+    name: approval-service
+
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:approval-service}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:sa}
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:create-drop}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+  h2:
+    console:
+      path: ${SPRING_H2_CONSOLE_PATH:/h2-console}
+      enabled: ${SPRING_H2_CONSOLE_ENABLED:true}
+      settings:
+        web-allow-others: true
+
+  output:
+    ansi:
+      enabled: ALWAYS
+
+
+security:
+  authorization:
+    paths:
+      - path: /expense-service/submit
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE}
