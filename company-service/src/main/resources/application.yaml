@@ -1,0 +1,21 @@
+server:
+  port: 8082
+
+
+spring:
+  application:
+    name: company-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:company-service}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:sa}
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:create-drop}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+  h2:
+    console:
+      path: ${SPRING_H2_CONSOLE_PATH:/h2-console}
+      enabled: ${SPRING_H2_CONSOLE_ENABLED:true}
+      settings:
+        web-allow-others: true

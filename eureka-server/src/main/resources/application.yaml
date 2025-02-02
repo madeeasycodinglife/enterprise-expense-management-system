@@ -1,0 +1,17 @@
+server:
+  port: ${SERVER_PORT:8761}
+
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:eureka-server}
+  output:
+    ansi:
+      enabled: ALWAYS
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:true}
+
+eureka:
+  client:
+    register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:false}
+    fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:false}
