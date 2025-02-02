@@ -373,4 +373,17 @@ public class AuthServiceImpl implements AuthService {
                 .message("User updated successfully")
                 .build();
     }
+
+    @Override
+    public AuthResponse getUserDetailsByEmailId(String emailId) {
+        User user = this.userRepository.findByEmail(emailId).orElseThrow(() -> new UsernameNotFoundException("User not found !"));
+        return AuthResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .companyDomain(user.getCompanyDomain())
+                .role(user.getRole().name())
+                .build();
+    }
 }

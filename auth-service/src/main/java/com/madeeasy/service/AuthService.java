@@ -21,4 +21,6 @@ public interface AuthService {
     boolean validateAccessToken(String accessToken);
 
     AuthResponse partiallyUpdateUser(String emailId, UserRequest userRequest);
+
+    AuthResponse getUserDetailsByEmailId(String emailId);
 }

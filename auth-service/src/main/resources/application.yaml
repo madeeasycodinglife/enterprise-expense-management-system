@@ -46,6 +46,11 @@ security:
       - path: /auth-service/refresh-token/**
         method: POST
         roles: ${SECURITY_AUTHORIZATION_PATHS_REFRESH_TOKEN_ROLES:}
+
+      - path: /auth-service/get-user/**
+        method: GET
+        roles: ${SECURITY_AUTHORIZATION_PATHS_REFRESH_TOKEN_ROLES:EMPLOYEE,MANAGER,FINANCE,ADMIN}
+
       - path: /auth-service/partial-update/**
         method: PATCH
         roles: ${SECURITY_AUTHORIZATION_PATHS_PARTIAL_UPDATE_ROLES:EMPLOYEE,MANAGER,FINANCE,ADMIN}
