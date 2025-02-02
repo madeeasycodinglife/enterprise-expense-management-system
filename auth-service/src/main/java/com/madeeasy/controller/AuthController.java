@@ -87,4 +87,13 @@ public class AuthController {
         }
         return ResponseEntity.ok().body(authResponse);
     }
+
+    @GetMapping(path = "/get-user/{emailId}")
+    public ResponseEntity<?> getUser(@PathVariable("emailId") String emailId) {
+        Map<String, String> validatedEmail = ValidationUtils.validateEmail(emailId);
+        if (!validatedEmail.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedEmail);
+        }
+        return ResponseEntity.ok().body(this.authService.getUserDetailsByEmailId(emailId));
+    }
 }

@@ -11,7 +11,12 @@ import java.io.Serializable;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuthResponse implements Serializable {
-
+    private Long id;
+    private String fullName;
+    private String email;
+    private String companyDomain;
+    private String phone;
+    private String role;
     private String accessToken;
     private String refreshToken;
     private HttpStatus status;
