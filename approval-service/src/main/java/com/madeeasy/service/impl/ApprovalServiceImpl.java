@@ -31,7 +31,8 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     public void askForApproval(ExpenseRequestDTO expenseRequestDTO) {
-        String accessToken = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+        String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = authHeader.substring("Bearer ".length());
         String approverRole = jwtUtils.getRoleFromToken(accessToken);
         String approverEmail = jwtUtils.getUserName(accessToken);
 
@@ -45,8 +46,8 @@ public class ApprovalServiceImpl implements ApprovalService {
 //                "&emailId=" + expenseRequestDTO.getEmailId(); // in future call to auth-service and by company domain get manager emailId and set here
 
         // Send email to Manager for approval
-        String approveLink = "http://localhost:8084/approval-service/approve?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
-        String rejectLink = "http://localhost:8084/approval-service/reject?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
+        String approveLink = "http://localhost:8085/approval-service/approve?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
+        String rejectLink = "http://localhost:8085/approval-service/reject?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
 
         // Create the request body, including expense details and links
         Map<String, Object> requestBody = new HashMap<>();
@@ -86,6 +87,7 @@ public class ApprovalServiceImpl implements ApprovalService {
          */
         if (role.equals("MANAGER")) {
             // Approve and send to Finance
+            System.out.println("Manager role trying to send another notifcation to finance");
             sendNextApproval(expenseId, title, description, amount, category, expenseDate, "pabitrabera2001@gmail.com", "FINANCE");
         } else if (role.equals("FINANCE")) {
             // Approve and send to Admin
@@ -106,7 +108,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                                  String emailId,
                                  String role) {
         // Fetch expense details from the database
-        Approval approval = approvalRepository.findById(expenseId)
+        Approval approval = approvalRepository.findByExpenseId(expenseId)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
 
         // Prepare the expense details as query parameters
@@ -119,8 +121,8 @@ public class ApprovalServiceImpl implements ApprovalService {
                 "&emailId=" + emailId;
 
         // Prepare the approval/rejection links with the expense details and the role for the next approver
-        String approveLink = "http://localhost:8084/approval-service/approve?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
-        String rejectLink = "http://localhost:8084/approval-service/reject?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
+        String approveLink = "http://localhost:8085/approval-service/approve?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
+        String rejectLink = "http://localhost:8085/approval-service/reject?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
 
         // Create the request body, including expense details and links
         Map<String, Object> requestBody = new HashMap<>();
@@ -128,8 +130,10 @@ public class ApprovalServiceImpl implements ApprovalService {
         requestBody.put("approveLink", approveLink);        // Approval link
         requestBody.put("rejectLink", rejectLink);          // Rejection link
 
+        System.out.println("Ready to sent another notification");
         // Send the notification to the next approver
         String notificationUrl = "http://localhost:8084/notification-service/";
         restTemplate.postForObject(notificationUrl, requestBody, Void.class);
+        System.out.println("Notification sent");
     }
 }

@@ -28,7 +28,7 @@ public class ApprovalController {
                                  @RequestParam String emailId, @RequestParam String role) {
         System.out.println("expenseId " + expenseId + "title " + title + " description " + description + " amount " + amount + " category " + category + " expenseDate " + expenseDate + " email " + emailId + " role " + role);
         try {
-//            String result = approvalService.approveExpense(expenseId, email);  // Call service to approve expense
+            approvalService.approveExpenseFromEmail(expenseId, title, description, amount, category, expenseDate, emailId, role);  // Call service to approve expense
 //            model.addAttribute("result", result);  // Pass the result to the view
 //            model.addAttribute("action", "approved");
         } catch (Exception e) {
