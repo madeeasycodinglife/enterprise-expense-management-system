@@ -42,6 +42,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                 "&amount=" + expenseRequestDTO.getAmount() +
                 "&category=" + expenseRequestDTO.getCategory() +
                 "&expenseDate=" + expenseRequestDTO.getExpenseDate();
+//                "&emailId=" + expenseRequestDTO.getEmailId(); // in future call to auth-service and by company domain get manager emailId and set here
 
         // Send email to Manager for approval
         String approveLink = "http://localhost:8084/approval-service/approve?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
@@ -80,6 +81,9 @@ public class ApprovalServiceImpl implements ApprovalService {
         Approval approval = approvalRepository.findByExpenseId(expenseId)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
 
+        /**
+         * in future call auth-service and there by company domain get finance/admin emailId and make the below dynamic email
+         */
         if (role.equals("MANAGER")) {
             // Approve and send to Finance
             sendNextApproval(expenseId, title, description, amount, category, expenseDate, "pabitrabera2001@gmail.com", "FINANCE");
@@ -111,7 +115,8 @@ public class ApprovalServiceImpl implements ApprovalService {
                 "&category=" + category +
                 "&description=" + description +
                 "&title=" + title +
-                "&expenseDate=" + expenseDate;
+                "&expenseDate=" + expenseDate +
+                "&emailId=" + emailId;
 
         // Prepare the approval/rejection links with the expense details and the role for the next approver
         String approveLink = "http://localhost:8084/approval-service/approve?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
