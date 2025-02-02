@@ -32,6 +32,32 @@ public class JwtUtils {
                 .compact();
     }
 
+    public String generateAccessTokenWithCompanyDomain(String email, String role, String companyDomain) {
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject(email)
+                .claim("roles", role)
+                .claim("companyDomain", companyDomain)  // Add the companyDomain claim here
+                .issuer("madeeasycodinglife")
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(3)))
+                .signWith(getSignKey())
+                .compact();
+    }
+
+    public String generateRefreshTokenWithCompanyDomain(String email, String role, String companyDomain) {
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject(email)
+                .claim("roles", role)
+                .claim("companyDomain", companyDomain)  // Add the companyDomain claim here
+                .issuer("madeeasycodinglife")
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(5)))
+                .signWith(getSignKey())
+                .compact();
+    }
+
     public String generateRefreshToken(String email, String role) {
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())

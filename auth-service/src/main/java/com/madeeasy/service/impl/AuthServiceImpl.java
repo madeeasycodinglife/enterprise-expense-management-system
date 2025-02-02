@@ -1,7 +1,6 @@
 package com.madeeasy.service.impl;
 
 import com.madeeasy.dto.request.AuthRequest;
-import com.madeeasy.dto.request.SignInRequestDTO;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.entity.Role;
 import com.madeeasy.entity.Token;
@@ -14,16 +13,10 @@ import com.madeeasy.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -34,9 +27,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
-    private final PasswordEncoder passwordEncoder;
     private final TokenRepository tokenRepository;
-    private final AuthenticationManager authenticationManager;
 
     @Override
     public AuthResponse singUp(AuthRequest authRequest) {
@@ -55,17 +46,38 @@ public class AuthServiceImpl implements AuthService {
         }
 
 
-        User user = User.builder()
-                .fullName(authRequest.getFullName())
-                .email(authRequest.getEmail())
-                .password(passwordEncoder.encode(authRequest.getPassword()))
-                .phone(authRequest.getPhone())
-                .isAccountNonExpired(true)
-                .isAccountNonLocked(true)
-                .isCredentialsNonExpired(true)
-                .isEnabled(true)
-                .role(Role.valueOf(normalizedRole))
-                .build();
+                if (company != null) {
+                    // Do something with the company object
+                    isCompanyFound = true;
+                } else {
+                    // Handle the case where the body is null (company not found or empty response)
+                    System.out.println("No company data found.");
+                }
+            } else {
+                // Handle non-2xx HTTP status codes (error responses from the server)
+                System.out.println("Failed to fetch company data. HTTP status: " + responseEntity.getStatusCode());
+            }
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // Handle specific HTTP client/server errors
+            System.out.println("HTTP error occurred: " + e.getMessage());
+        } catch (Exception e) {
+            // Handle other unexpected exceptions
+            System.out.println("An error occurred: " + e.getMessage());
+        }
+
+        if (isCompanyFound) {
+            User user = User.builder()
+                    .fullName(authRequest.getFullName())
+                    .email(authRequest.getEmail())
+                    .password(authRequest.getPassword())
+                    .companyDomain(authRequest.getCompanyDomain())
+                    .phone(authRequest.getPhone())
+                    .isAccountNonExpired(true)
+                    .isAccountNonLocked(true)
+                    .isCredentialsNonExpired(true)
+                    .isEnabled(true)
+                    .role(Role.valueOf(normalizedRole))
+                    .build();
 
 
         // Check if a user with the given email or phone already exists
