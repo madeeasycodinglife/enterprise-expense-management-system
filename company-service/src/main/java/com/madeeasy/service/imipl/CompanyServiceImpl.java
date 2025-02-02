@@ -30,6 +30,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         Company savedCompany = this.companyRepository.save(company);
         return CompanyResponseDTO.builder()
+                .id(savedCompany.getId())
                 .name(savedCompany.getName())
                 .domain(savedCompany.getDomain())
                 .build();
@@ -40,6 +41,7 @@ public class CompanyServiceImpl implements CompanyService {
         Company foundCompany = this.companyRepository.findByDomain(domain).orElseThrow(() -> new RuntimeException("Invalid company Domain"));
 
         return CompanyResponseDTO.builder()
+                .id(foundCompany.getId())
                 .name(foundCompany.getName())
                 .domain(foundCompany.getDomain())
                 .build();
