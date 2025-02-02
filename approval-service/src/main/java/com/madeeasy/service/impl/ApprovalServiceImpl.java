@@ -47,10 +47,11 @@ public class ApprovalServiceImpl implements ApprovalService {
         String approveLink = "http://localhost:8084/approval-service/approve?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
         String rejectLink = "http://localhost:8084/approval-service/reject?" + expenseDetails + "&emailId=" + "pabitrabera2001@gmail.com" + "&role=MANAGER";
 
-        // Create the request body
+        // Create the request body, including expense details and links
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("approveLink", approveLink);
-        requestBody.put("rejectLink", rejectLink);
+        requestBody.put("expenseDetails", expenseDetails);  // Sending full expense details
+        requestBody.put("approveLink", approveLink);        // Approval link
+        requestBody.put("rejectLink", rejectLink);          // Rejection link
 
         // Rest call to notification-services to send email
         String notificationUrl = "http://localhost:8084/notification-service/";
@@ -116,10 +117,11 @@ public class ApprovalServiceImpl implements ApprovalService {
         String approveLink = "http://localhost:8084/approval-service/approve?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
         String rejectLink = "http://localhost:8084/approval-service/reject?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
 
-        // Create the request body (for notification)
+        // Create the request body, including expense details and links
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("approveLink", approveLink);
-        requestBody.put("rejectLink", rejectLink);
+        requestBody.put("expenseDetails", expenseDetails);  // Sending full expense details
+        requestBody.put("approveLink", approveLink);        // Approval link
+        requestBody.put("rejectLink", rejectLink);          // Rejection link
 
         // Send the notification to the next approver
         String notificationUrl = "http://localhost:8084/notification-service/";
