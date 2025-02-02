@@ -6,10 +6,7 @@ import com.madeeasy.dto.response.CompanyResponseDTO;
 import com.madeeasy.service.CompanyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,5 +19,11 @@ public class CompanyController {
     public ResponseEntity<?> registerCompany(@RequestBody CompanyRequestDTO request) {
         CompanyResponseDTO company = companyService.registerCompany(request);
         return ResponseEntity.ok(company);
+    }
+
+    @GetMapping(path = "/domain-name/{domain}")
+    public ResponseEntity<?> getCompany(@PathVariable String domain) {
+        CompanyResponseDTO companyByDomainName = this.companyService.getCompanyByDomainName(domain);
+        return ResponseEntity.ok(companyByDomainName);
     }
 }

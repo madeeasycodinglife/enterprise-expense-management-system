@@ -34,4 +34,14 @@ public class CompanyServiceImpl implements CompanyService {
                 .domain(savedCompany.getDomain())
                 .build();
     }
+
+    @Override
+    public CompanyResponseDTO getCompanyByDomainName(String domain) {
+        Company foundCompany = this.companyRepository.findByDomain(domain).orElseThrow(() -> new RuntimeException("Invalid company Domain"));
+
+        return CompanyResponseDTO.builder()
+                .name(foundCompany.getName())
+                .domain(foundCompany.getDomain())
+                .build();
+    }
 }
