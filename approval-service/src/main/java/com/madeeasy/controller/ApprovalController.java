@@ -44,8 +44,9 @@ public class ApprovalController {
                                 @RequestParam String emailId, @RequestParam String role) {
         System.out.println("expenseId " + expenseId + "title " + title + " description " + description + " amount " + amount + " category " + category + " expenseDate " + expenseDate + " email " + emailId + " role " + role);
         try {
-//            String result = expenseService.rejectExpense(expenseId, email);  // Call service to reject expense
-//            model.addAttribute("result", result);  // Pass the result to the view
+            approvalService.rejectExpenseFromEmail(expenseId, title, description, amount, category, expenseDate, emailId, role);
+
+            // model.addAttribute("result", result);  // Pass the result to the view
 //            model.addAttribute("action", "rejected");
         } catch (Exception e) {
 //            model.addAttribute("result", "An error occurred while processing the rejection.");

@@ -15,4 +15,12 @@ public interface ApprovalService {
                                  String expenseDate,
                                  String emailId,
                                  String role);
+    void rejectExpenseFromEmail(Long expenseId,
+                                String title,
+                                String description,
+                                BigDecimal amount,
+                                String category,
+                                String expenseDate,
+                                String emailId,
+                                String role);
 }

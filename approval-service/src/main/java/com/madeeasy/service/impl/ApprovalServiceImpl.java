@@ -136,4 +136,56 @@ public class ApprovalServiceImpl implements ApprovalService {
         restTemplate.postForObject(notificationUrl, requestBody, Void.class);
         System.out.println("Notification sent");
     }
+
+    @Override
+    public void rejectExpenseFromEmail(Long expenseId,
+                                       String title,
+                                       String description,
+                                       BigDecimal amount,
+                                       String category,
+                                       String expenseDate,
+                                       String emailId,
+                                       String role) {
+        // Fetch the expense approval request from the database
+        Approval approval = approvalRepository.findByExpenseId(expenseId)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        // Update status to REJECTED
+        approval.setStatus(ApprovalStatus.REJECTED);
+        approvalRepository.save(approval);
+
+        // Notify the requester that the expense has been rejected
+        notifyRejection(expenseId, title, description, amount, category, expenseDate, emailId, role);
+    }
+
+    private void notifyRejection(Long expenseId,
+                                 String title,
+                                 String description,
+                                 BigDecimal amount,
+                                 String category,
+                                 String expenseDate,
+                                 String emailId,
+                                 String role) {
+        // Prepare rejection details
+        String rejectionDetails = "expenseId=" + expenseId +
+                "&amount=" + amount +
+                "&category=" + category +
+                "&description=" + description +
+                "&title=" + title +
+                "&expenseDate=" + expenseDate +
+                "&emailId=" + emailId;
+
+        System.out.println("Inside notifyRejection method !!");
+        System.out.println("expenseId: " + expenseId + " title: " + title + " description: " + description + " amount: " + amount + " category: " + category + " expenseDate: " + expenseDate + " email: " + emailId + " role: " + role);
+        // Create the request body
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("expenseDetails", rejectionDetails);
+        requestBody.put("rejectedBy", role);
+        requestBody.put("rejectionReason", "Your expense request has been rejected by " + role);
+
+//        // Notify requester via notification service
+//        String notificationUrl = "http://localhost:8084/notification-service/";
+//        restTemplate.postForObject(notificationUrl, requestBody, Void.class);
+    }
+
 }
