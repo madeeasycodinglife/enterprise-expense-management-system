@@ -30,6 +30,8 @@ public class AuthRequest {
     )
     private String password;
 
+    @NotBlank(message = "Company domain is required.")
+    private String companyDomain;
     @NotBlank(message = "Phone number is required.")
     @Pattern(
             regexp = "^[+]?[0-9]{10,13}$",
