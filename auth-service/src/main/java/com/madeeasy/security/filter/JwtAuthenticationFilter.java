@@ -3,6 +3,7 @@ package com.madeeasy.security.filter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.madeeasy.entity.Token;
 import com.madeeasy.entity.User;
+import com.madeeasy.exception.TokenException;
 import com.madeeasy.repository.TokenRepository;
 import com.madeeasy.repository.UserRepository;
 import com.madeeasy.security.config.SecurityConfigProperties;
@@ -82,11 +83,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Token token = null;
             try {
                 token = tokenRepository.findByToken(accessToken)
-                        .orElseThrow(() -> new RuntimeException("Token Not found"));
+                        .orElseThrow(() -> new TokenException("Token Not found"));
                 if (token.isExpired() || token.isRevoked()) {
-                    throw new RuntimeException("Token is expired or revoked");
+                    throw new TokenException("Token is expired or revoked");
                 }
-            } catch (RuntimeException e) {
+            } catch (TokenException e) {
                 handleInvalidToken(response, e.getMessage());
                 return; // Exit the filter chain
             }
