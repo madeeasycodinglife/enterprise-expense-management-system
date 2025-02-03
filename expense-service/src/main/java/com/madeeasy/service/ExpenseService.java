@@ -18,5 +18,6 @@ public interface ExpenseService {
     void deleteExpense(Long id); // Delete
 
     List<ExpenseResponseDTO> getExpensesByCategoryAndCompanyDomain(String domainName, String category);
+    byte[] generateExpenseInvoice(String domainName);
 
 }

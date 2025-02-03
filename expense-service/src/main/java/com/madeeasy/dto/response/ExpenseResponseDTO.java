@@ -14,7 +14,7 @@ public class ExpenseResponseDTO {
 
     private Long id;
     private Long employeeId;
-    private Long companyId;
+    private String companyDomain;
     private String title;
     private String description;
     private BigDecimal amount;

@@ -11,13 +11,13 @@ import java.util.List;
 
 @Repository
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
-    List<Expense> findByCompanyId(Long companyId);
+    List<Expense> findByCompanyDomain(String domainName);
 
     List<Expense> findByEmployeeId(Long employeeId);
-    @Query("SELECT e FROM Expense e WHERE e.category = :category AND e.companyId = :companyId")
+    @Query("SELECT e FROM Expense e WHERE e.category = :category AND e.companyDomain = :companyDomain")
     List<Expense> findExpensesByCategoryAndCompanyDomain(
             @Param("category") ExpenseCategory category,  // Change String to ExpenseCategory
-            @Param("companyId") Long companyId
+            @Param("companyDomain") String companyDomain
     );
 }
 

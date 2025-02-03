@@ -6,6 +6,8 @@ import com.madeeasy.dto.response.ExpenseResponseDTO;
 import com.madeeasy.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,5 +56,17 @@ public class ExpenseController {
             @PathVariable String category) {
         List<ExpenseResponseDTO> expenses = expenseService.getExpensesByCategoryAndCompanyDomain(domainName, category);
         return ResponseEntity.ok(expenses);
+    }
+
+    // generate invoice
+    @GetMapping("/generate/{domainName}")
+    public ResponseEntity<byte[]> generateInvoice(@PathVariable String domainName) {
+        byte[] pdfBytes = expenseService.generateExpenseInvoice(domainName);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Expense_Invoice.pdf");
+        headers.set(HttpHeaders.CONTENT_TYPE, "application/pdf");
+
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
 }

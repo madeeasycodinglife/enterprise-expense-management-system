@@ -1,5 +1,9 @@
 package com.madeeasy.service.impl;
 
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
 import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
 import com.madeeasy.dto.response.ExpenseResponseDTO;
@@ -21,7 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 
@@ -67,12 +74,11 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw new IllegalStateException("Unable to fetch company information.");
         }
 
-        Long companyId = companyResponse.getId();
 
         // Create an Expense entity and set all the required fields
         Expense expense = new Expense();
         expense.setEmployeeId(userId);  // Set employeeId (userId)
-        expense.setCompanyId(companyId);  // Set companyId
+        expense.setCompanyDomain(companyResponse.getDomain());  // Set companyId
 
         // Set other fields from ExpenseRequestDTO
         expense.setTitle(expenseRequestDTO.getTitle());  // Set title
@@ -87,7 +93,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         // Save the expense to the database
         expenseRepository.save(expense);
 
-        log.info("Expense submitted successfully by user {} with company id {}", userId, companyId);
+        log.info("Expense submitted successfully by user {} with company domain {}", userId, companyResponse.getDomain());
     }
 
     @Override
@@ -96,7 +102,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return ExpenseResponseDTO.builder()
                 .id(expense.getId())
                 .employeeId(expense.getEmployeeId())
-                .companyId(expense.getCompanyId())
+                .companyDomain(expense.getCompanyDomain())
                 .title(expense.getTitle())
                 .description(expense.getDescription())
                 .amount(expense.getAmount())
@@ -112,7 +118,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .stream().map(expense -> ExpenseResponseDTO.builder()
                         .id(expense.getId())
                         .employeeId(expense.getEmployeeId())
-                        .companyId(expense.getCompanyId())
+                        .companyDomain(expense.getCompanyDomain())
                         .title(expense.getTitle())
                         .description(expense.getDescription())
                         .amount(expense.getAmount())
@@ -148,7 +154,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return ExpenseResponseDTO.builder()
                 .id(savedExpense.getId())
                 .employeeId(savedExpense.getEmployeeId())
-                .companyId(savedExpense.getCompanyId())
+                .companyDomain(savedExpense.getCompanyDomain())
                 .title(savedExpense.getTitle())
                 .description(savedExpense.getDescription())
                 .amount(savedExpense.getAmount())
@@ -194,7 +200,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         // Step 3: Fetch expenses from the database
         List<Expense> expenseList;
         try {
-            expenseList = expenseRepository.findExpensesByCategoryAndCompanyDomain(expenseCategory, companyId);
+            expenseList = expenseRepository.findExpensesByCategoryAndCompanyDomain(expenseCategory, domainName);
         } catch (Exception e) {
             // Handle any database-related issues
             throw new RuntimeException("Error retrieving expenses from the database.", e);
@@ -204,7 +210,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return expenseList.stream().map(expense -> ExpenseResponseDTO.builder()
                 .id(expense.getId())
                 .employeeId(expense.getEmployeeId())
-                .companyId(expense.getCompanyId())
+                .companyDomain(expense.getCompanyDomain())
                 .title(expense.getTitle())
                 .description(expense.getDescription())
                 .amount(expense.getAmount())
@@ -213,6 +219,60 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .status(expense.getStatus())
                 .build()
         ).toList();
+    }
+
+    @Override
+    public byte[] generateExpenseInvoice(String companyDomain) {
+        List<Expense> expenseList = expenseRepository.findByCompanyDomain(companyDomain);
+
+        try {
+            Document document = new Document();
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            PdfWriter.getInstance(document, outputStream);
+            document.open();
+
+            // **Invoice Header**
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+            Paragraph title = new Paragraph("Expense Invoice", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            document.add(new Paragraph("Generated on: " + LocalDateTime.now().format(formatter)));
+            document.add(new Paragraph("\n"));
+
+            // **Create Table for Expenses**
+            PdfPTable table = new PdfPTable(6);
+            table.setWidthPercentage(100);
+            table.setSpacingBefore(10f);
+            table.setSpacingAfter(10f);
+
+            // **Define Column Headers**
+            String[] headers = {"Expense ID", "Title", "Description", "Amount ($)", "Category", "Date"};
+            for (String header : headers) {
+                PdfPCell headerCell = new PdfPCell(new Phrase(header));
+                headerCell.setBackgroundColor(new BaseColor(184, 218, 255));
+                headerCell.setPadding(5);
+                table.addCell(headerCell);
+            }
+
+            // **Insert Data Rows**
+            for (Expense expense : expenseList) {
+                table.addCell(String.valueOf(expense.getId()));
+                table.addCell(expense.getTitle());
+                table.addCell(expense.getDescription());
+                table.addCell("$" + expense.getAmount());
+                table.addCell(expense.getCategory().toString());
+                table.addCell(expense.getExpenseDate().toString());
+            }
+
+            document.add(table);
+            document.close();
+
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            log.error("Error generating invoice PDF", e);
+            throw new RuntimeException("Failed to generate invoice", e);
+        }
     }
 
     private HttpHeaders createHeaders(String accessToken) {

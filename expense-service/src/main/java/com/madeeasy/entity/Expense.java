@@ -27,7 +27,7 @@ public class Expense {
     private Long employeeId;
 
     @Column(nullable = false)
-    private Long companyId;
+    private String companyDomain;
 
     @Column(nullable = false)
     private String title;
