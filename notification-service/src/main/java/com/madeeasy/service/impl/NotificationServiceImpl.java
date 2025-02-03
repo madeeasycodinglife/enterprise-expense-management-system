@@ -3,8 +3,10 @@ package com.madeeasy.service.impl;
 import com.madeeasy.service.NotificationService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
     private final JavaMailSender mailSender;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     public void sendApprovalNotification(Long expenseId,
@@ -38,7 +41,7 @@ public class NotificationServiceImpl implements NotificationService {
                 amount, approvalLink, rejectLink);
 
         try {
-            sendEmail(emailId == null ? "pabitrabera2001@gmail.com" : emailId, "🚀 Expense Approval Required", emailContent);
+            sendEmail(emailId, "🚀 Expense Approval Required", emailContent);
         } catch (MessagingException e) {
             log.error("Failed to send approval email", e);
         }
