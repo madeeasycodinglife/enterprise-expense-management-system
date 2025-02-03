@@ -16,4 +16,7 @@ public interface ExpenseService {
     ExpenseResponseDTO updateExpense(Long id, ExpensePartialRequestDTO expensePartialRequestDTO); // Update
 
     void deleteExpense(Long id); // Delete
+
+    List<ExpenseResponseDTO> getExpensesByCategoryAndCompanyDomain(String domainName, String category);
+
 }

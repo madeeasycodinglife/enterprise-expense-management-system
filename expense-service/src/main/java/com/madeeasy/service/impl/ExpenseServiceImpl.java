@@ -4,6 +4,7 @@ import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
 import com.madeeasy.dto.response.ExpenseResponseDTO;
 import com.madeeasy.entity.Expense;
+import com.madeeasy.entity.ExpenseCategory;
 import com.madeeasy.entity.ExpenseStatus;
 import com.madeeasy.repository.ExpenseRepository;
 import com.madeeasy.service.ExpenseService;
@@ -12,13 +13,12 @@ import com.madeeasy.vo.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
+import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -161,6 +161,58 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     public void deleteExpense(Long id) {
         this.expenseRepository.deleteById(id);
+    }
+
+    @Override
+    public List<ExpenseResponseDTO> getExpensesByCategoryAndCompanyDomain(String domainName, String category) {
+        // Step 1: Validate and map category to Enum
+        ExpenseCategory expenseCategory;
+        try {
+            expenseCategory = ExpenseCategory.valueOf(category.toUpperCase()); // Convert String to Enum
+        } catch (IllegalArgumentException e) {
+            // Log and handle invalid category
+            throw new RuntimeException("Invalid category: " + category);
+        }
+
+        // Step 2: Get company details from company service by domain name
+        Long companyId;
+        try {
+            String companyUrl = "http://localhost:8082/company-service/domain-name/" + domainName;
+            ResponseEntity<CompanyResponseDTO> companyResponse = restTemplate.exchange(companyUrl, HttpMethod.GET, null, CompanyResponseDTO.class);
+
+            if (companyResponse.getStatusCode() != HttpStatus.OK || companyResponse.getBody() == null) {
+                // Handle cases where the company service call fails or returns no data
+                throw new RuntimeException("Failed to retrieve company details for domain: " + domainName);
+            }
+
+            companyId = companyResponse.getBody().getId();
+        } catch (RestClientException e) {
+            // Handle any REST client exceptions (e.g., network issues, 404, etc.)
+            throw new RuntimeException("Error calling company service: " + e.getMessage(), e);
+        }
+
+        // Step 3: Fetch expenses from the database
+        List<Expense> expenseList;
+        try {
+            expenseList = expenseRepository.findExpensesByCategoryAndCompanyDomain(expenseCategory, companyId);
+        } catch (Exception e) {
+            // Handle any database-related issues
+            throw new RuntimeException("Error retrieving expenses from the database.", e);
+        }
+
+        // Step 4: Map expenses to ExpenseResponseDTO
+        return expenseList.stream().map(expense -> ExpenseResponseDTO.builder()
+                .id(expense.getId())
+                .employeeId(expense.getEmployeeId())
+                .companyId(expense.getCompanyId())
+                .title(expense.getTitle())
+                .description(expense.getDescription())
+                .amount(expense.getAmount())
+                .category(expense.getCategory())
+                .expenseDate(expense.getExpenseDate())
+                .status(expense.getStatus())
+                .build()
+        ).toList();
     }
 
     private HttpHeaders createHeaders(String accessToken) {
