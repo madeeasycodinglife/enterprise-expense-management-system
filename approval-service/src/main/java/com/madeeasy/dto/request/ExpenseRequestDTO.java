@@ -15,8 +15,8 @@ public class ExpenseRequestDTO {
     @NotNull(message = "Expense ID is required")
     private Long expenseId;
 
-    @NotNull(message = "Employee ID is required")
-    private Long companyId;
+    @NotNull(message = "Company domain is required")
+    private String companyDomain;
 
     @NotBlank(message = "Title is required")
     private String title;
