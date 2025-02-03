@@ -7,6 +7,8 @@ import com.madeeasy.dto.request.UserRequest;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.entity.User;
 
+import java.util.List;
+
 public interface AuthService {
     AuthResponse singUp(AuthRequest authRequest);
 
@@ -23,4 +25,6 @@ public interface AuthService {
     AuthResponse partiallyUpdateUser(String emailId, UserRequest userRequest);
 
     AuthResponse getUserDetailsByEmailId(String emailId);
+
+    List<AuthResponse> getUserDetailsByCompanyDomainAndRole(String companyDomain, String role);
 }
