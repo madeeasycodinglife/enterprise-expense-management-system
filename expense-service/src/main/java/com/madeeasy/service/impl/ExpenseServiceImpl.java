@@ -1,6 +1,8 @@
 package com.madeeasy.service.impl;
 
+import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
+import com.madeeasy.dto.response.ExpenseResponseDTO;
 import com.madeeasy.entity.Expense;
 import com.madeeasy.entity.ExpenseStatus;
 import com.madeeasy.repository.ExpenseRepository;
@@ -19,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 
 @Slf4j
 @Service
@@ -34,13 +39,16 @@ public class ExpenseServiceImpl implements ExpenseService {
     public void submitExpense(ExpenseRequestDTO expenseRequestDTO) {
         // Get the current authenticated user's email
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("authentication = " + authentication);
         String emailId = (String) authentication.getPrincipal();
 
         // Get the access token from request headers
-        String accessToken = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
-
+        String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = authHeader.substring("Bearer ".length());
         // Rest call to auth-service to get user details by email
         String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + emailId;
+        System.out.println("authUrlToGetUser = " + authUrlToGetUser);
+        System.out.println("accessToken: " + accessToken);
         UserResponse userResponse = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
                 new HttpEntity<>(createHeaders(accessToken)), UserResponse.class).getBody();
 
@@ -82,9 +90,82 @@ public class ExpenseServiceImpl implements ExpenseService {
         log.info("Expense submitted successfully by user {} with company id {}", userId, companyId);
     }
 
+    @Override
+    public ExpenseResponseDTO getExpenseById(Long id) {
+        Expense expense = this.expenseRepository.findById(id).orElseThrow(() -> new RuntimeException("Expense not found"));
+        return ExpenseResponseDTO.builder()
+                .id(expense.getId())
+                .employeeId(expense.getEmployeeId())
+                .companyId(expense.getCompanyId())
+                .title(expense.getTitle())
+                .description(expense.getDescription())
+                .amount(expense.getAmount())
+                .category(expense.getCategory())
+                .expenseDate(expense.getExpenseDate())
+                .status(expense.getStatus())
+                .build();
+    }
+
+    @Override
+    public List<ExpenseResponseDTO> getAllExpenses() {
+        return this.expenseRepository.findAll()
+                .stream().map(expense -> ExpenseResponseDTO.builder()
+                        .id(expense.getId())
+                        .employeeId(expense.getEmployeeId())
+                        .companyId(expense.getCompanyId())
+                        .title(expense.getTitle())
+                        .description(expense.getDescription())
+                        .amount(expense.getAmount())
+                        .category(expense.getCategory())
+                        .expenseDate(expense.getExpenseDate())
+                        .status(expense.getStatus())
+                        .build()
+                ).toList();
+    }
+
+    @Override
+    public ExpenseResponseDTO updateExpense(Long id, ExpensePartialRequestDTO expensePartialRequestDTO) {
+        Expense existingExpense = expenseRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Expense not found with ID: " + id));
+
+        if (expensePartialRequestDTO.getTitle() != null && !expensePartialRequestDTO.getTitle().isEmpty()) {
+            existingExpense.setTitle(expensePartialRequestDTO.getTitle());
+        }
+        if (expensePartialRequestDTO.getDescription() != null && !expensePartialRequestDTO.getDescription().isEmpty()) {
+            existingExpense.setDescription(expensePartialRequestDTO.getDescription());
+        }
+        if (expensePartialRequestDTO.getAmount() != null && expensePartialRequestDTO.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+            existingExpense.setAmount(expensePartialRequestDTO.getAmount());
+        }
+        if (expensePartialRequestDTO.getCategory() != null && !expensePartialRequestDTO.getCategory().name().isEmpty()) {
+            existingExpense.setCategory(expensePartialRequestDTO.getCategory());
+        }
+        if (expensePartialRequestDTO.getExpenseDate() != null) {
+            existingExpense.setExpenseDate(expensePartialRequestDTO.getExpenseDate());
+        }
+
+        Expense savedExpense = expenseRepository.save(existingExpense);
+        return ExpenseResponseDTO.builder()
+                .id(savedExpense.getId())
+                .employeeId(savedExpense.getEmployeeId())
+                .companyId(savedExpense.getCompanyId())
+                .title(savedExpense.getTitle())
+                .description(savedExpense.getDescription())
+                .amount(savedExpense.getAmount())
+                .category(savedExpense.getCategory())
+                .expenseDate(savedExpense.getExpenseDate())
+                .status(savedExpense.getStatus())
+                .build();
+    }
+
+    @Override
+    public void deleteExpense(Long id) {
+        this.expenseRepository.deleteById(id);
+    }
+
     private HttpHeaders createHeaders(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.AUTHORIZATION, accessToken);
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);  // Ensure 'Bearer' prefix
         return headers;
     }
 

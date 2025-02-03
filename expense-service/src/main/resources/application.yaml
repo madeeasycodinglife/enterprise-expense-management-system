@@ -31,9 +31,6 @@ spring:
 security:
   authorization:
     paths:
-      - path: /approval-service/ask-for-approve
+      - path: /expense-service/submit
         method: POST
         roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE}
-      - path: /approval-service/approve
-        method: GET
-        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:MANAGER,FINANCE,ADMIN}
