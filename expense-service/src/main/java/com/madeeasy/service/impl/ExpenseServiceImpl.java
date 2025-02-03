@@ -12,6 +12,7 @@ import com.madeeasy.entity.ExpenseCategory;
 import com.madeeasy.entity.ExpenseStatus;
 import com.madeeasy.repository.ExpenseRepository;
 import com.madeeasy.service.ExpenseService;
+import com.madeeasy.vo.ApprovalRequestDTO;
 import com.madeeasy.vo.CompanyResponseDTO;
 import com.madeeasy.vo.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,54 +47,84 @@ public class ExpenseServiceImpl implements ExpenseService {
     public void submitExpense(ExpenseRequestDTO expenseRequestDTO) {
         // Get the current authenticated user's email
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("authentication = " + authentication);
         String emailId = (String) authentication.getPrincipal();
 
         // Get the access token from request headers
         String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = authHeader.substring("Bearer ".length());
+
         // Rest call to auth-service to get user details by email
         String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + emailId;
-        System.out.println("authUrlToGetUser = " + authUrlToGetUser);
-        System.out.println("accessToken: " + accessToken);
         UserResponse userResponse = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
                 new HttpEntity<>(createHeaders(accessToken)), UserResponse.class).getBody();
-
         if (userResponse == null) {
             throw new IllegalStateException("Unable to fetch user information.");
         }
 
         Long userId = userResponse.getId();
 
-        // Rest call to company-service to get company id
+        // Rest call to company-service to get company domain
         String companyUrlToGetCompany = "http://localhost:8082/company-service/domain-name/" + userResponse.getCompanyDomain();
         CompanyResponseDTO companyResponse = restTemplate.exchange(companyUrlToGetCompany, HttpMethod.GET,
                 new HttpEntity<>(createHeaders(accessToken)), CompanyResponseDTO.class).getBody();
-
         if (companyResponse == null) {
             throw new IllegalStateException("Unable to fetch company information.");
         }
 
+        // Define the threshold for auto-approval
+        BigDecimal approvalThreshold = new BigDecimal("5000"); // Example: Auto-approve if <= 5000
 
-        // Create an Expense entity and set all the required fields
+        // Create an Expense entity and set required fields
         Expense expense = new Expense();
-        expense.setEmployeeId(userId);  // Set employeeId (userId)
-        expense.setCompanyDomain(companyResponse.getDomain());  // Set companyId
+        expense.setEmployeeId(userId);
+        expense.setCompanyDomain(companyResponse.getDomain());
+        expense.setTitle(expenseRequestDTO.getTitle());
+        expense.setDescription(expenseRequestDTO.getDescription());
+        expense.setAmount(expenseRequestDTO.getAmount());
+        expense.setCategory(expenseRequestDTO.getCategory());
+        expense.setExpenseDate(expenseRequestDTO.getExpenseDate());
 
-        // Set other fields from ExpenseRequestDTO
-        expense.setTitle(expenseRequestDTO.getTitle());  // Set title
-        expense.setDescription(expenseRequestDTO.getDescription());  // Set description
-        expense.setAmount(expenseRequestDTO.getAmount());  // Set amount
-        expense.setCategory(expenseRequestDTO.getCategory());  // Set category
-        expense.setExpenseDate(expenseRequestDTO.getExpenseDate());  // Set expense date
+        if (expenseRequestDTO.getAmount().compareTo(approvalThreshold) <= 0) {
+            // Auto-approve expense
+            expense.setStatus(ExpenseStatus.APPROVED);
+            // Save the expense to the database
+            expenseRepository.save(expense);
+            log.info("Expense auto-approved: {} by user {}", expenseRequestDTO.getAmount(), userId);
+        } else {
+            // Requires multi-level approval
+            expense.setStatus(ExpenseStatus.SUBMITTED);
+            // Save the expense to the database
+            expenseRepository.save(expense);
+            // Construct the ApprovalRequestDTO object
+            ApprovalRequestDTO approvalRequestDTO = ApprovalRequestDTO.builder()
+                    .expenseId(expense.getId())
+                    .companyDomain(expense.getCompanyDomain())
+                    .title(expense.getTitle())
+                    .description(expense.getDescription())
+                    .amount(expense.getAmount())
+                    .category(expense.getCategory())
+                    .expenseDate(expense.getExpenseDate())
+                    .build();
 
-        // Set default status to 'SUBMITTED' if not already set in the DTO (status will default if not set)
-        expense.setStatus(ExpenseStatus.SUBMITTED);  // Ensure the status is set if not already done
+            // Set up the headers (set content type as JSON)
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.CONTENT_TYPE, String.valueOf(MediaType.APPLICATION_JSON));
+            headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken); // Assuming authorization header is needed
 
-        // Save the expense to the database
-        expenseRepository.save(expense);
+            // Create an HttpEntity with the body and headers
+            HttpEntity<ApprovalRequestDTO> requestEntity = new HttpEntity<>(approvalRequestDTO, headers);
 
-        log.info("Expense submitted successfully by user {} with company domain {}", userId, companyResponse.getDomain());
+            // Make the POST request (assuming the endpoint expects a POST request)
+            String approvalUrl = "http://localhost:8085/approval-service/ask-for-approve";
+            ResponseEntity<Void> response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
+
+            if (response.getStatusCode() == HttpStatus.OK) {
+                log.info("Approval request sent successfully.");
+            } else {
+                log.error("Failed to send approval request: {}", response.getStatusCode());
+            }
+
+        }
     }
 
     @Override
