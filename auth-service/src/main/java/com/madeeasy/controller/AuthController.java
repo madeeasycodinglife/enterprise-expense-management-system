@@ -96,4 +96,11 @@ public class AuthController {
         }
         return ResponseEntity.ok().body(this.authService.getUserDetailsByEmailId(emailId));
     }
+
+    // get-user by company domain
+    @GetMapping(path = "/get-user/{companyDomain}/{role}")
+    public ResponseEntity<?> getUserByCompanyDomain(@PathVariable("companyDomain") String companyDomain,
+                                                    @PathVariable("role") String role) {
+        return ResponseEntity.ok().body(this.authService.getUserDetailsByCompanyDomainAndRole(companyDomain, role.toUpperCase()));
+    }
 }

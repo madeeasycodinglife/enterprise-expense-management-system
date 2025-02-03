@@ -34,6 +34,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -385,5 +386,25 @@ public class AuthServiceImpl implements AuthService {
                 .companyDomain(user.getCompanyDomain())
                 .role(user.getRole().name())
                 .build();
+    }
+
+    @Override
+    public List<AuthResponse> getUserDetailsByCompanyDomainAndRole(String companyDomain, String role) {
+        List<User> existingUser = this.userRepository.findByCompanyDomainAndRole(companyDomain, Role.valueOf(role));
+
+        if (existingUser.isEmpty()) {
+            throw new UsernameNotFoundException("User not found");
+        }
+
+        return existingUser.stream()
+                .map(user -> AuthResponse.builder()
+                        .id(user.getId())
+                        .fullName(user.getFullName())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .companyDomain(user.getCompanyDomain())
+                        .role(user.getRole().name())
+                        .build())
+                .collect(Collectors.toList());
     }
 }
