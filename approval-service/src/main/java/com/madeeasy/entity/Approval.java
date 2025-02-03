@@ -22,11 +22,11 @@ public class Approval {
     )
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private Long expenseId;
 
     @Column(nullable = false)
-    private Long companyId;
+    private String companyDomain;
 
     @Column(nullable = false)
     private String approverRole; // MANAGER, FINANCE, ADMIN
