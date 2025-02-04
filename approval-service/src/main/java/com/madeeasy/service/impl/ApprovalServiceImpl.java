@@ -266,4 +266,11 @@ public class ApprovalServiceImpl implements ApprovalService {
             this.approvalRepository.save(currentApproval);
         }
     }
+
+    @Override
+    public boolean hasAlreadyResponded(Long expenseId, String employeeEmail) {
+        List<ApprovalStatus> statusList = List.of(ApprovalStatus.APPROVED, ApprovalStatus.REJECTED);
+        return this.approvalRepository.existsByExpenseIdAndApprovedByAndStatusIn(expenseId, employeeEmail, statusList);
+    }
+
 }

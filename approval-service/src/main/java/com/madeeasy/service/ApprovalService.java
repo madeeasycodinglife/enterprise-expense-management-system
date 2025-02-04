@@ -26,4 +26,5 @@ public interface ApprovalService {
                                 String expenseDate,
                                 String emailId,
                                 String role);
+    boolean hasAlreadyResponded(Long expenseId, String employeeEmail);
 }

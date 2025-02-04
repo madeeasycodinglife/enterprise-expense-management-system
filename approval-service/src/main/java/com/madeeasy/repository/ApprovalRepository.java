@@ -4,6 +4,7 @@ import com.madeeasy.entity.Approval;
 import com.madeeasy.entity.ApprovalStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,4 +18,6 @@ public interface ApprovalRepository extends JpaRepository<Approval, Long> {
     Optional<Approval> findByExpenseIdAndApprovedByAndStatus(Long expenseId, String approvedBy, ApprovalStatus status);
 
     Optional<Approval> findByExpenseIdAndApproverRoleAndStatus(Long expenseId, String role, ApprovalStatus approvalStatus);
+
+    boolean existsByExpenseIdAndApprovedByAndStatusIn(Long expenseId, String approvedBy, Collection<ApprovalStatus> approved);
 }

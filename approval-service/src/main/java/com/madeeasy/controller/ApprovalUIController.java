@@ -23,6 +23,12 @@ public class ApprovalUIController {
                                  @RequestParam String accessToken, @RequestParam String emailId, @RequestParam String role, Model model) {
         try {
             String[] email = emailId.split(",");
+            if (approvalService.hasAlreadyResponded(expenseId, email[0])) {
+                model.addAttribute("action", "already-responded");
+                model.addAttribute("expenseTitle", title);
+                model.addAttribute("amount", amount);
+                return "approvalResult";
+            }
             approvalService.approveExpenseFromEmail(expenseId, title, description, amount, category, expenseDate, accessToken, email[0], role);
 
             // ✅ Pass attributes to Thymeleaf template for Approval UI
@@ -41,6 +47,12 @@ public class ApprovalUIController {
                                 @RequestParam String emailId, @RequestParam String role, Model model) {
         try {
             String[] email = emailId.split(",");
+            if (approvalService.hasAlreadyResponded(expenseId, email[0])) {
+                model.addAttribute("action", "already-responded");
+                model.addAttribute("expenseTitle", title);
+                model.addAttribute("amount", amount);
+                return "approvalResult";
+            }
             approvalService.rejectExpenseFromEmail(expenseId, title, description, amount, category, expenseDate, email[0], role);
 
             // ✅ Ensure attributes are passed for Rejection UI
