@@ -182,111 +182,6 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
     }
 
-    // Find the approval for the current role from the list
-    private Approval findPendingApprovalForRole(List<Approval> approvals, String role) {
-        return approvals.stream()
-                .filter(a -> a.getApproverRole().equals(role) && a.getStatus() == ApprovalStatus.PENDING)
-                .findFirst()
-                .orElse(null);  // Return null if no pending approval found for the role
-    }
-
-    private void handleManagerApproval(Long expenseId,
-                                       String title,
-                                       String description,
-                                       BigDecimal amount,
-                                       String category,
-                                       String expenseDate,
-                                       String accessToken,
-                                       String emailId) {
-        // Fetch the pending approval record for the MANAGER
-        Approval managerApproval = findPendingApprovalForRole(expenseId, "MANAGER");
-
-        if (managerApproval != null) {
-            // Update the status to APPROVED for the MANAGER
-            managerApproval.setStatus(ApprovalStatus.APPROVED);
-            approvalRepository.save(managerApproval);
-
-            // Get the finance approver's email
-            String financeEmail = getApproverEmail(expenseId, "FINANCE", accessToken);
-
-            // Send the approval request to FINANCE
-            sendNextApproval(expenseId, title, description, amount, category, expenseDate, accessToken, financeEmail, "FINANCE");
-        }
-    }
-
-    private void handleFinanceApproval(Long expenseId,
-                                       String title,
-                                       String description,
-                                       BigDecimal amount,
-                                       String category,
-                                       String expenseDate,
-                                       String accessToken,
-                                       String emailId) {
-        // Fetch the pending approval record for FINANCE
-        Approval financeApproval = findPendingApprovalForRole(expenseId, "FINANCE");
-
-        if (financeApproval != null) {
-            // Update the status to APPROVED for FINANCE
-            financeApproval.setStatus(ApprovalStatus.APPROVED);
-            approvalRepository.save(financeApproval);
-
-            // Get the admin approver's email
-            String adminEmail = getApproverEmail(expenseId, "ADMIN", accessToken);
-
-            // Send the approval request to ADMIN
-            sendNextApproval(expenseId, title, description, amount, category, expenseDate, accessToken, adminEmail, "ADMIN");
-        }
-    }
-
-    private void handleAdminApproval(Long expenseId,
-                                     String title,
-                                     String description,
-                                     BigDecimal amount,
-                                     String category,
-                                     String expenseDate,
-                                     String accessToken,
-                                     String emailId) {
-        // Fetch the pending approval record for ADMIN
-        Approval adminApproval = findPendingApprovalForRole(expenseId, "ADMIN");
-
-        if (adminApproval != null) {
-            // Update the status to APPROVED for ADMIN
-            adminApproval.setStatus(ApprovalStatus.APPROVED);
-            approvalRepository.save(adminApproval);
-        }
-    }
-
-
-    private Approval findPendingApprovalForRole(Long expenseId, String role) {
-        return approvalRepository.findByExpenseIdAndApproverRoleAndStatus(expenseId, role, ApprovalStatus.PENDING)
-                .orElseThrow(() -> new RuntimeException("No pending approval found for " + role));
-    }
-
-    private String getApproverEmail(Long expenseId, String role, String accessToken) {
-        // Fetch the approver's email for the given role (e.g., FINANCE or ADMIN)
-
-        String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + getCompanyDomain(expenseId) + "/" + role;
-        List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
-                new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
-                }).getBody();
-
-        if (userResponseList == null || userResponseList.isEmpty()) {
-            throw new IllegalStateException("Unable to fetch user information for role: " + role);
-        }
-
-        UserResponse userResponse = userResponseList.getFirst();  // Get the first element from the list
-        return userResponse.getEmail();  // Return the email of the first user
-    }
-
-    private String getCompanyDomain(Long expenseId) {
-        // Fetch the company domain for the given expenseId from the database
-        Approval approval = this.approvalRepository.findById(expenseId)
-                .orElseThrow(() -> new RuntimeException("Expense not found"));
-
-        // Assuming the company domain is part of the Expense entity
-        return approval.getCompanyDomain();  // Fetch the company domain associated with the expense
-    }
-
 
     public void sendNextApproval(Long expenseId,
                                  String title,
@@ -359,57 +254,16 @@ public class ApprovalServiceImpl implements ApprovalService {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No approval found for role: " + role));
 
-        // Update the status to REJECTED
-        currentApproval.setStatus(ApprovalStatus.REJECTED);
-        approvalRepository.save(currentApproval);
-        // Notify the requester that the expense has been rejected
-        notifyRejection(expenseId, title, description, amount, category, expenseDate, emailId, role);
-    }
-
-    private void notifyRejection(Long expenseId,
-                                 String title,
-                                 String description,
-                                 BigDecimal amount,
-                                 String category,
-                                 String expenseDate,
-                                 String emailId,
-                                 String role) {
-        String encodedTitle = null;
-        String encodedDescription = null;
-        String encodedCategory = null;
-        String encodedExpenseDate = null;
-        String encodedEmailId = null;
-        try {
-            // URL-encode each parameter using UTF-8
-            encodedTitle = URLEncoder.encode(title, StandardCharsets.UTF_8);
-            encodedDescription = URLEncoder.encode(description, "UTF-8");
-            encodedCategory = URLEncoder.encode(category, "UTF-8");
-            encodedExpenseDate = URLEncoder.encode(expenseDate, "UTF-8");
-            encodedEmailId = URLEncoder.encode(emailId, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            System.out.println(e.getMessage());
+        if (role.equals("MANAGER")) {
+            // Update the status to REJECTED
+            currentApproval.setStatus(ApprovalStatus.REJECTED);
+            approvalRepository.save(currentApproval);
+        } else if (role.equals("FINANCE")) {
+            currentApproval.setStatus(ApprovalStatus.REJECTED);
+            this.approvalRepository.save(currentApproval);
+        } else if (role.equals("ADMIN")) {
+            currentApproval.setStatus(ApprovalStatus.REJECTED);
+            this.approvalRepository.save(currentApproval);
         }
-
-        // Construct the rejection details string with encoded parameters
-        String rejectionDetails = "expenseId=" + expenseId +
-                "&amount=" + amount +
-                "&category=" + encodedCategory +
-                "&description=" + encodedDescription +
-                "&title=" + encodedTitle +
-                "&expenseDate=" + encodedExpenseDate +
-                "&emailId=" + encodedEmailId;
-
-        System.out.println("Inside notifyRejection method !!");
-        System.out.println("expenseId: " + expenseId + " title: " + title + " description: " + description + " amount: " + amount + " category: " + category + " expenseDate: " + expenseDate + " email: " + emailId + " role: " + role);
-        // Create the request body
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("expenseDetails", rejectionDetails);
-        requestBody.put("rejectedBy", role);
-        requestBody.put("rejectionReason", "Your expense request has been rejected by " + role);
-
-//        // Notify requester via notification service
-//        String notificationUrl = "http://localhost:8084/notification-service/";
-//        restTemplate.postForObject(notificationUrl, requestBody, Void.class);
     }
-
 }

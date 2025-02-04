@@ -45,8 +45,9 @@ public class ApprovalController {
                                 @RequestParam BigDecimal amount, @RequestParam String category, @RequestParam String expenseDate,
                                 @RequestParam String emailId, @RequestParam String role) {
         System.out.println("expenseId " + expenseId + "title " + title + " description " + description + " amount " + amount + " category " + category + " expenseDate " + expenseDate + " email " + emailId + " role " + role);
+        String[] email = emailId.split(",");
         try {
-            approvalService.rejectExpenseFromEmail(expenseId, title, description, amount, category, expenseDate, emailId, role);
+            approvalService.rejectExpenseFromEmail(expenseId, title, description, amount, category, expenseDate, email[0], role);
 
             // model.addAttribute("result", result);  // Pass the result to the view
 //            model.addAttribute("action", "rejected");
