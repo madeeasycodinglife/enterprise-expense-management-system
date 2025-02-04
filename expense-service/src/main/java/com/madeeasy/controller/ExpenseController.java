@@ -61,10 +61,17 @@ public class ExpenseController {
         return ResponseEntity.ok(expenses);
     }
 
-    // generate invoice
-    @GetMapping("/generate/{domainName}")
-    public ResponseEntity<byte[]> generateInvoice(@PathVariable String domainName) {
-        byte[] pdfBytes = expenseService.generateExpenseInvoice(domainName);
+    @GetMapping("/generate/invoice/{domainName}")
+    public ResponseEntity<byte[]> generateInvoice(
+            @PathVariable String domainName,
+            @RequestParam(required = false) Integer startYear, // Optional start year filter
+            @RequestParam(required = false) Integer endYear,   // Optional end year filter
+            @RequestParam(required = false) Integer startMonth, // Optional start month filter
+            @RequestParam(required = false) Integer endMonth,   // Optional end month filter
+            @RequestParam(required = false) String category) {  // Optional category filter
+
+        byte[] pdfBytes = expenseService.generateExpenseInvoice(
+                domainName, startYear, endYear, startMonth, endMonth, category);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Expense_Invoice.pdf");
@@ -72,6 +79,8 @@ public class ExpenseController {
 
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
+
+
 
     // Endpoint for monthly expense trends with optional filters for start/end year and month
     @GetMapping("/expenses/{companyDomain}/monthly-trends")

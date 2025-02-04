@@ -255,9 +255,74 @@ public class ExpenseServiceImpl implements ExpenseService {
         ).toList();
     }
 
+//    @Override
+//    public byte[] generateExpenseInvoice(String companyDomain) {
+//        List<Expense> expenseList = expenseRepository.findByCompanyDomain(companyDomain);
+//
+//        try {
+//            Document document = new Document();
+//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//            PdfWriter.getInstance(document, outputStream);
+//            document.open();
+//
+//            // **Invoice Header**
+//            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+//            Paragraph title = new Paragraph("Expense Invoice", titleFont);
+//            title.setAlignment(Element.ALIGN_CENTER);
+//            document.add(title);
+//            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+//            document.add(new Paragraph("Generated on: " + LocalDateTime.now().format(formatter)));
+//            document.add(new Paragraph("\n"));
+//
+//            // **Create Table for Expenses**
+//            PdfPTable table = new PdfPTable(6);
+//            table.setWidthPercentage(100);
+//            table.setSpacingBefore(10f);
+//            table.setSpacingAfter(10f);
+//
+//            // **Define Column Headers**
+//            String[] headers = {"Expense ID", "Title", "Description", "Amount ($)", "Category", "Date"};
+//            for (String header : headers) {
+//                PdfPCell headerCell = new PdfPCell(new Phrase(header));
+//                headerCell.setBackgroundColor(new BaseColor(184, 218, 255));
+//                headerCell.setPadding(5);
+//                table.addCell(headerCell);
+//            }
+//
+//            // **Insert Data Rows**
+//            for (Expense expense : expenseList) {
+//                table.addCell(String.valueOf(expense.getId()));
+//                table.addCell(expense.getTitle());
+//                table.addCell(expense.getDescription());
+//                table.addCell("$" + expense.getAmount());
+//                table.addCell(expense.getCategory().toString());
+//                table.addCell(expense.getExpenseDate().toString());
+//            }
+//
+//            document.add(table);
+//            document.close();
+//
+//            return outputStream.toByteArray();
+//        } catch (Exception e) {
+//            log.error("Error generating invoice PDF", e);
+//            throw new RuntimeException("Failed to generate invoice", e);
+//        }
+//    }
+
     @Override
-    public byte[] generateExpenseInvoice(String companyDomain) {
-        List<Expense> expenseList = expenseRepository.findByCompanyDomain(companyDomain);
+    public byte[] generateExpenseInvoice(String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth, String category) {
+        // Convert the category to ExpenseCategory enum if not null
+        ExpenseCategory categoryToUse = null;
+        if (category != null && !category.isEmpty()) {
+            try {
+                categoryToUse = ExpenseCategory.valueOf(category.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid category provided");
+            }
+        }
+
+        // Fetch the expenses with the optional filters (year, month, category)
+        List<Expense> expenseList = expenseRepository.findExpensesWithFilters(companyDomain, startYear, endYear, startMonth, endMonth, categoryToUse);
 
         try {
             Document document = new Document();

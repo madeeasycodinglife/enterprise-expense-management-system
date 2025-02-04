@@ -22,7 +22,8 @@ public interface ExpenseService {
 
     List<ExpenseResponseDTO> getExpensesByCategoryAndCompanyDomain(String domainName, String category);
 
-    byte[] generateExpenseInvoice(String domainName);
+
+    byte[] generateExpenseInvoice(String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth, String category);
 
 
     List<ExpenseTrend> getMonthlyExpenseTrends(String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth);
