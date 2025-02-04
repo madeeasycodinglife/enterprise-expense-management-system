@@ -7,6 +7,7 @@ import com.itextpdf.text.pdf.PdfWriter;
 import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
 import com.madeeasy.dto.response.ExpenseResponseDTO;
+import com.madeeasy.dto.response.ExpenseTrend;
 import com.madeeasy.entity.Expense;
 import com.madeeasy.entity.ExpenseCategory;
 import com.madeeasy.entity.ExpenseStatus;
@@ -30,6 +31,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -304,6 +306,42 @@ public class ExpenseServiceImpl implements ExpenseService {
             log.error("Error generating invoice PDF", e);
             throw new RuntimeException("Failed to generate invoice", e);
         }
+    }
+
+    @Override
+    public List<ExpenseTrend> getMonthlyExpenseTrends(
+            String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth) {
+
+        List<Object[]> results = expenseRepository.findMonthlyExpenseTrendsByCompanyDomain(
+                companyDomain, startYear, endYear, startMonth, endMonth);
+
+        List<ExpenseTrend> trends = new ArrayList<>();
+
+        for (Object[] result : results) {
+            int year = ((Number) result[0]).intValue();
+            int month = ((Number) result[1]).intValue();
+            BigDecimal totalAmount = (BigDecimal) result[2];
+
+            trends.add(ExpenseTrend.builder().month(month).year(year).totalAmount(totalAmount).build());
+        }
+
+        return trends;
+    }
+
+    @Override
+    public List<ExpenseTrend> getYearlyExpenseTrends(String companyDomain, Integer startYear, Integer endYear) {
+        List<Object[]> results = expenseRepository.findYearlyExpenseTrendsByCompanyDomain(
+                companyDomain, startYear, endYear);
+
+        List<ExpenseTrend> trends = new ArrayList<>();
+
+        for (Object[] result : results) {
+            int year = ((Number) result[0]).intValue();
+            BigDecimal totalAmount = (BigDecimal) result[1];
+            trends.add(ExpenseTrend.builder().year(year).totalAmount(totalAmount).build());
+        }
+
+        return trends;
     }
 
     private HttpHeaders createHeaders(String accessToken) {

@@ -3,6 +3,7 @@ package com.madeeasy.controller;
 import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
 import com.madeeasy.dto.response.ExpenseResponseDTO;
+import com.madeeasy.dto.response.ExpenseTrend;
 import com.madeeasy.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -68,5 +69,33 @@ public class ExpenseController {
         headers.set(HttpHeaders.CONTENT_TYPE, "application/pdf");
 
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+    }
+
+    // Endpoint for monthly expense trends with optional filters for start/end year and month
+    @GetMapping("/expenses/{companyDomain}/monthly-trends")
+    public ResponseEntity<?> getMonthlyExpenseTrends(
+            @PathVariable String companyDomain,
+            @RequestParam(required = false) Integer startYear,  // Optional start year filter
+            @RequestParam(required = false) Integer endYear,    // Optional end year filter
+            @RequestParam(required = false) Integer startMonth, // Optional start month filter
+            @RequestParam(required = false) Integer endMonth) { // Optional end month filter
+
+        List<ExpenseTrend> trends = this.expenseService.getMonthlyExpenseTrends(
+                companyDomain, startYear, endYear, startMonth, endMonth);
+
+        return ResponseEntity.ok(trends);
+    }
+
+    // Endpoint for yearly expense trends with optional filters for start/end year
+    @GetMapping("/expenses/{companyDomain}/yearly-trends")
+    public ResponseEntity<?> getYearlyExpenseTrends(
+            @PathVariable String companyDomain,
+            @RequestParam(required = false) Integer startYear, // Optional start year filter
+            @RequestParam(required = false) Integer endYear) {  // Optional end year filter
+
+        List<ExpenseTrend> trends = this.expenseService.getYearlyExpenseTrends(
+                companyDomain, startYear, endYear);
+
+        return ResponseEntity.ok(trends);
     }
 }
