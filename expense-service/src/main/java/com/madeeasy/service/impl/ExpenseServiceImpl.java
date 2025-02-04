@@ -6,6 +6,7 @@ import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
+import com.madeeasy.dto.response.ExpenseCategoryBreakdown;
 import com.madeeasy.dto.response.ExpenseResponseDTO;
 import com.madeeasy.dto.response.ExpenseTrend;
 import com.madeeasy.entity.Expense;
@@ -350,4 +351,27 @@ public class ExpenseServiceImpl implements ExpenseService {
         return headers;
     }
 
+    // Method to get expense breakdown by category with optional filters for year and month
+    @Override
+    public List<ExpenseCategoryBreakdown> getExpenseBreakdownByCategory(
+            String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth, ExpenseCategory category) {
+
+        // Fetch the data based on filters from the repository
+        List<Object[]> results = expenseRepository.findExpenseCategoryBreakdown(
+                companyDomain, startYear, endYear, startMonth, endMonth, category);
+
+        List<ExpenseCategoryBreakdown> breakdown = new ArrayList<>();
+
+        for (Object[] result : results) {
+            int month = ((Number) result[0]).intValue();
+            int year = ((Number) result[1]).intValue();
+            ExpenseCategory categoryName = (ExpenseCategory) result[2];
+            BigDecimal totalAmount = (BigDecimal) result[3];
+
+            // Add the result to the breakdown
+            breakdown.add(ExpenseCategoryBreakdown.builder().month(month).year(year).category(categoryName).totalAmount(totalAmount).build());
+        }
+
+        return breakdown;
+    }
 }

@@ -58,5 +58,24 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("startYear") Integer startYear,
             @Param("endYear") Integer endYear);
 
+    @Query("SELECT EXTRACT(MONTH FROM e.expenseDate) AS month, " +
+            "EXTRACT(YEAR FROM e.expenseDate) AS year, e.category AS category, " +
+            "SUM(e.amount) AS totalAmount " +
+            "FROM Expense e WHERE e.companyDomain = :companyDomain " +
+            "AND (:startYear IS NULL OR EXTRACT(YEAR FROM e.expenseDate) >= :startYear) " +
+            "AND (:endYear IS NULL OR EXTRACT(YEAR FROM e.expenseDate) <= :endYear) " +
+            "AND (:startMonth IS NULL OR EXTRACT(MONTH FROM e.expenseDate) >= :startMonth) " +
+            "AND (:endMonth IS NULL OR EXTRACT(MONTH FROM e.expenseDate) <= :endMonth) " +
+            "AND (:category IS NULL OR e.category = :category) " +
+            "GROUP BY EXTRACT(MONTH FROM e.expenseDate), EXTRACT(YEAR FROM e.expenseDate), e.category " +
+            "ORDER BY year DESC, month DESC")
+    List<Object[]> findExpenseCategoryBreakdown(
+            @Param("companyDomain") String companyDomain,
+            @Param("startYear") Integer startYear,
+            @Param("endYear") Integer endYear,
+            @Param("startMonth") Integer startMonth,
+            @Param("endMonth") Integer endMonth,
+            @Param("category") ExpenseCategory category);
+
 }
 

@@ -2,8 +2,10 @@ package com.madeeasy.controller;
 
 import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
+import com.madeeasy.dto.response.ExpenseCategoryBreakdown;
 import com.madeeasy.dto.response.ExpenseResponseDTO;
 import com.madeeasy.dto.response.ExpenseTrend;
+import com.madeeasy.entity.ExpenseCategory;
 import com.madeeasy.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -98,4 +100,33 @@ public class ExpenseController {
 
         return ResponseEntity.ok(trends);
     }
+
+    @GetMapping("/expenses/{companyDomain}/category-breakdown")
+    public ResponseEntity<?> getExpenseCategoryBreakdown(
+            @PathVariable String companyDomain,
+            @RequestParam(required = false) Integer startYear,
+            @RequestParam(required = false) Integer endYear,
+            @RequestParam(required = false) Integer startMonth,
+            @RequestParam(required = false) Integer endMonth,
+            @RequestParam(required = false) String category) {
+
+        // Convert the category to ExpenseCategory enum if not null
+        ExpenseCategory categoryToUse = null;
+        if (category != null && !category.isEmpty()) {
+            try {
+                categoryToUse = ExpenseCategory.valueOf(category.toUpperCase()); // Convert to enum
+            } catch (IllegalArgumentException e) {
+                // If the category doesn't match any enum value, return an error
+                return ResponseEntity.badRequest().body("Invalid category provided");
+            }
+        }
+
+        // Call the service method
+        List<ExpenseCategoryBreakdown> breakdown = this.expenseService.getExpenseBreakdownByCategory(
+                companyDomain, startYear, endYear, startMonth, endMonth, categoryToUse);
+
+        return ResponseEntity.ok(breakdown);
+    }
+
+
 }
