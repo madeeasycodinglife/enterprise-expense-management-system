@@ -31,3 +31,30 @@ security:
       - path: /expense-service/submit
         method: POST
         roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE}
+
+resilience4j:
+  retry:
+    configs:
+      approvalServiceRetry:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.HttpClientErrorException
+          - java.lang.RuntimeException
+    instances:
+      myRetry:
+        baseConfig: approvalServiceRetry
+
+  circuitbreaker:
+    configs:
+      approvalServiceCircuitBreaker:
+        registerHealthIndicator: true
+        failureRateThreshold: 20  # 20% failure rate to open the circuit
+        minimumNumberOfCalls: 5   # Minimum number of calls before circuit is considered
+        slidingWindowSize: 10     # Size of the sliding window
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+    instances:
+      myCircuitBreaker:
+        baseConfig: approvalServiceCircuitBreaker

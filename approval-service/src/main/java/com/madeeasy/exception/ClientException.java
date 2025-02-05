@@ -5,7 +5,6 @@ import org.springframework.http.HttpStatus;
 
 @Data
 public class ClientException extends RuntimeException {
-
     private HttpStatus status;
     private String message;
 

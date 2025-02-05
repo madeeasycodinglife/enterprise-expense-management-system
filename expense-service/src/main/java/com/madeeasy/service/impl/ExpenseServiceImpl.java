@@ -1,5 +1,8 @@
 package com.madeeasy.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
@@ -12,6 +15,7 @@ import com.madeeasy.dto.response.ExpenseTrend;
 import com.madeeasy.entity.Expense;
 import com.madeeasy.entity.ExpenseCategory;
 import com.madeeasy.entity.ExpenseStatus;
+import com.madeeasy.exception.ClientException;
 import com.madeeasy.repository.ExpenseRepository;
 import com.madeeasy.service.ExpenseService;
 import com.madeeasy.vo.ApprovalRequestDTO;
@@ -25,6 +29,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -119,12 +125,47 @@ public class ExpenseServiceImpl implements ExpenseService {
 
             // Make the POST request (assuming the endpoint expects a POST request)
             String approvalUrl = "http://localhost:8085/approval-service/ask-for-approve";
-            ResponseEntity<Void> response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
+            ResponseEntity<Void> response = null;
+            try {
+                response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
 
-            if (response.getStatusCode() == HttpStatus.OK) {
-                log.info("Approval request sent successfully.");
-            } else {
-                log.error("Failed to send approval request: {}", response.getStatusCode());
+                if (response.getStatusCode() == HttpStatus.OK) {
+                    log.info("Approval request sent successfully.");
+                } else {
+                    log.error("Failed to send approval request: {}", response.getStatusCode());
+                }
+            } catch (HttpClientErrorException | HttpServerErrorException e) {
+                String responseBody = e.getResponseBodyAsString();
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
+                }
+
+                if (jsonNode != null) {
+                    String message = jsonNode.get("message").asText();
+                    String status = jsonNode.get("status").asText();
+
+                    HttpStatus httpStatus;
+                    try {
+                        httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+                    } catch (IllegalArgumentException e2) {
+                        log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+                        httpStatus = HttpStatus.UNAUTHORIZED;
+                    }
+
+                    log.error("Parsed message: {}", message);
+                    log.error("Parsed status: {}", status);
+
+                    // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    log.error("Failed to parse JSON response body.");
+                    throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
             }
 
         }

@@ -100,7 +100,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
 
-
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
         Map<String, Object> response = new HashMap<>();
@@ -134,7 +133,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
 
-
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleUsernameNotFoundException(UsernameNotFoundException exception) {
         Map<String, Object> responseBody = Map.of(
@@ -163,14 +161,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(responseBody);
     }
 
+    //    @ExceptionHandler(ClientException.class)
+//    public ResponseEntity<Map<String, Object>> handleClientException(ClientException exception) {
+//        System.out.println("Inside clientException handler: " + exception);
+//        Map<String, Object> responseBody = Map.of(
+//                "status", HttpStatus.BAD_REQUEST,
+//                "message", exception.getMessage()
+//        );
+//        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(responseBody);
+//    }
     @ExceptionHandler(ClientException.class)
-    public ResponseEntity<Map<String, Object>> handleClientException(ClientException exception) {
-        System.out.println("Inside clientException handler: " + exception);
-        Map<String, Object> responseBody = Map.of(
-                "status", HttpStatus.BAD_REQUEST,
-                "message", exception.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(responseBody);
+    public ResponseEntity<?> handleClientException(ClientException e) {
+        Map<String, String> response = new HashMap<>();
+        response.put("status", e.getStatus().toString());
+        response.put("message", e.getMessage());
+
+        // Log the exception (optional)
+        log.error("Error occurred: {}", e.getMessage());
+
+        return ResponseEntity.status(e.getStatus()).body(response);
     }
 
     @ExceptionHandler(Exception.class)
