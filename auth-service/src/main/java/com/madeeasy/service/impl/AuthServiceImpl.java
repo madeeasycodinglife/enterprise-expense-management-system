@@ -9,12 +9,15 @@ import com.madeeasy.entity.Role;
 import com.madeeasy.entity.Token;
 import com.madeeasy.entity.TokenType;
 import com.madeeasy.entity.User;
+import com.madeeasy.exception.ClientException;
 import com.madeeasy.exception.TokenException;
 import com.madeeasy.repository.TokenRepository;
 import com.madeeasy.repository.UserRepository;
 import com.madeeasy.service.AuthService;
 import com.madeeasy.util.JwtUtils;
 import com.madeeasy.vo.Company;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpMethod;
@@ -27,8 +30,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
@@ -50,8 +51,9 @@ public class AuthServiceImpl implements AuthService {
     private final RestTemplate restTemplate;
 
     @Override
+    @Retry(name = "companyServiceRetry", fallbackMethod = "companyServiceFallback")
+//    @CircuitBreaker(name = "companyServiceCircuitBreaker", fallbackMethod = "companyServiceFallback")
     public AuthResponse singUp(AuthRequest authRequest) {
-
         String normalizedRole = authRequest.getRole().toUpperCase();
 
         // Check if roles contain valid enum names
@@ -67,34 +69,33 @@ public class AuthServiceImpl implements AuthService {
 
         // Rest Call To Company Service to check if Company exists or Not
         String url = "http://localhost:8082/company-service/domain-name/" + authRequest.getCompanyDomain();
-        ResponseEntity<Company> responseEntity = null;
         boolean isCompanyExists = false;
+
+        System.out.println("Company Service is being called.....");
+        ResponseEntity<Company> responseEntity = null;
+
         try {
             // Perform the HTTP GET request and map the response to Company
             responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Company.class);
+            System.out.println("Company Service has been called.....");
 
             if (responseEntity.getStatusCode().is2xxSuccessful()) {
                 Company company = responseEntity.getBody();
-
                 if (company != null) {
-                    // Do something with the company object
                     isCompanyExists = true;
                 } else {
-                    // Handle the case where the body is null (company not found or empty response)
                     System.out.println("No company data found.");
                 }
             } else {
-                // Handle non-2xx HTTP status codes (error responses from the server)
+                // Handle non-2xx HTTP status codes
                 System.out.println("Failed to fetch company data. HTTP status: " + responseEntity.getStatusCode());
+                handleNon2xxStatus((HttpStatus) responseEntity.getStatusCode());
             }
-        } catch (HttpClientErrorException | HttpServerErrorException e) {
-            // Handle specific HTTP client/server errors
-            System.out.println("HTTP error occurred: " + e.getMessage());
         } catch (Exception e) {
-            // Handle other unexpected exceptions
-            System.out.println("An error occurred: " + e.getMessage());
+            // Any network-related or unexpected errors will also trigger the retry.
+            System.out.println("Exception occurred: " + e.getMessage());
+            throw e; // Rethrow the exception to trigger retry
         }
-
 
         if (isCompanyExists) {
             User user = User.builder()
@@ -110,8 +111,6 @@ public class AuthServiceImpl implements AuthService {
                     .role(Role.valueOf(normalizedRole))
                     .build();
 
-
-            // Check if a user with the given email or phone already exists
             boolean emailExists = userRepository.existsByEmail(authRequest.getEmail());
             boolean phoneExists = userRepository.existsByPhone(authRequest.getPhone());
 
@@ -131,7 +130,6 @@ public class AuthServiceImpl implements AuthService {
                         .status(HttpStatus.CONFLICT)
                         .build();
             }
-
 
             String accessToken = jwtUtils.generateAccessTokenWithCompanyDomain(user.getEmail(), normalizedRole, authRequest.getCompanyDomain());
             String refreshToken = jwtUtils.generateRefreshTokenWithCompanyDomain(user.getEmail(), normalizedRole, authRequest.getCompanyDomain());
@@ -160,6 +158,35 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    // Fallback method for when the company service call fails
+    private AuthResponse companyServiceFallback(AuthRequest authRequest, Throwable throwable) {
+        return AuthResponse.builder()
+                .message("Company service is unavailable at the moment. Please try again later.")
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .build();
+    }
+
+    // Handle non-2xx HTTP status codes
+    private AuthResponse handleNon2xxStatus(HttpStatus status) {
+        if (status.is4xxClientError()) {
+            return AuthResponse.builder()
+                    .message("Client error occurred: " + status.getReasonPhrase())
+                    .status(status)
+                    .build();
+        } else if (status.is5xxServerError()) {
+            return AuthResponse.builder()
+                    .message("Server error occurred: " + status.getReasonPhrase())
+                    .status(status)
+                    .build();
+        } else {
+            return AuthResponse.builder()
+                    .message("Unexpected error occurred: " + status.getReasonPhrase())
+                    .status(status)
+                    .build();
+        }
+    }
+
+
     public AuthResponse singIn(SignInRequestDTO signInRequest) {
         Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(signInRequest.getEmail(), signInRequest.getPassword()));
         if (authentication.isAuthenticated()) {
@@ -185,7 +212,7 @@ public class AuthServiceImpl implements AuthService {
                     .refreshToken(refreshToken)
                     .build();
         } else {
-            throw new RuntimeException("Bad Credential Exception !!");
+            throw new ClientException("Bad Credential Exception !!");
         }
     }
 
