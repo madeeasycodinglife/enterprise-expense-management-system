@@ -54,3 +54,45 @@ security:
       - path: /auth-service/partial-update/**
         method: PATCH
         roles: ${SECURITY_AUTHORIZATION_PATHS_PARTIAL_UPDATE_ROLES:EMPLOYEE,MANAGER,FINANCE,ADMIN}
+
+
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      companyServiceCircuitBreaker:
+        registerHealthIndicator: true
+        failureRateThreshold: 20
+        minimumNumberOfCalls: 5
+        slidingWindowSize: 10
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        slidingWindowType: COUNT_BASED
+    instances:
+      myCircuitBreaker: # this name is used in the annotation
+        baseConfig: companyServiceCircuitBreaker
+
+  retry:
+    metrics:
+      legacy:
+        enabled: true
+    configs:
+      companyServiceRetry:
+        maxAttempts: 3 # The maximum number of attempts to retry the operation. In this example, it is set to 3 attempt.
+        waitDuration: 500ms # The duration to wait between retry attempts.
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.HttpClientErrorException
+          - java.io.IOException
+          - java.lang.RuntimeException # The specific exceptions for which the retry should be triggered. In this case, the retry will be attempted only for java.lang.RuntimeException exceptions.
+    instances:
+      myRetry: # this name is used in the annotation
+        baseConfig: companyServiceRetry
+
+
+
+
+
+
+
