@@ -100,7 +100,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
 
-
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
         Map<String, Object> response = new HashMap<>();
@@ -134,7 +133,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
 
-
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleUsernameNotFoundException(UsernameNotFoundException exception) {
         Map<String, Object> responseBody = Map.of(
@@ -164,13 +162,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(ClientException.class)
-    public ResponseEntity<Map<String, Object>> handleClientException(ClientException exception) {
+    public ResponseEntity<?> handleClientException(ClientException exception) {
         System.out.println("Inside clientException handler: " + exception);
         Map<String, Object> responseBody = Map.of(
-                "status", HttpStatus.BAD_REQUEST,
+                "status", exception.getStatus(),
                 "message", exception.getMessage()
         );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(responseBody);
+        return ResponseEntity.status(exception.getStatus()).body(responseBody);
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,5 +1,8 @@
 package com.madeeasy.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.madeeasy.dto.request.AuthRequest;
 import com.madeeasy.dto.request.LogOutRequest;
 import com.madeeasy.dto.request.SignInRequestDTO;
@@ -16,8 +19,6 @@ import com.madeeasy.repository.UserRepository;
 import com.madeeasy.service.AuthService;
 import com.madeeasy.util.JwtUtils;
 import com.madeeasy.vo.Company;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpMethod;
@@ -30,6 +31,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
@@ -51,7 +54,7 @@ public class AuthServiceImpl implements AuthService {
     private final RestTemplate restTemplate;
 
     @Override
-    @Retry(name = "companyServiceRetry", fallbackMethod = "companyServiceFallback")
+//    @Retry(name = "companyServiceRetry", fallbackMethod = "companyServiceFallback")
 //    @CircuitBreaker(name = "companyServiceCircuitBreaker", fallbackMethod = "companyServiceFallback")
     public AuthResponse singUp(AuthRequest authRequest) {
         String normalizedRole = authRequest.getRole().toUpperCase();
@@ -91,10 +94,46 @@ public class AuthServiceImpl implements AuthService {
                 System.out.println("Failed to fetch company data. HTTP status: " + responseEntity.getStatusCode());
                 handleNon2xxStatus((HttpStatus) responseEntity.getStatusCode());
             }
-        } catch (Exception e) {
-            // Any network-related or unexpected errors will also trigger the retry.
-            System.out.println("Exception occurred: " + e.getMessage());
-            throw e; // Rethrow the exception to trigger retry
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // Get the response body (JSON) from the exception
+            String responseBody = e.getResponseBodyAsString();
+
+            // Parse the response body (which is a JSON string)
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = null;
+            try {
+                jsonNode = objectMapper.readTree(responseBody);
+            } catch (JsonProcessingException ex) {
+                log.error("Failed to parse response body: {}", ex.getMessage());
+            }
+
+            if (jsonNode != null) {
+                String message = jsonNode.get("message").asText();
+                String status = jsonNode.get("status").asText().substring(0, 3);
+
+                HttpStatus httpStatus = null;
+                try {
+                    // Check if the extracted status is numeric, then convert it to HttpStatus
+                    if (status.matches("\\d{3}")) {
+                        int statusCode = Integer.parseInt(status);  // Convert to integer
+                        httpStatus = HttpStatus.resolve(statusCode);  // Get HttpStatus from status code
+                    } else {
+                        httpStatus = HttpStatus.valueOf(status);  // If it's a name like "NOT_FOUND"
+                    }
+                } catch (IllegalArgumentException e2) {
+                    log.error("Invalid status '{}' found", status);
+                }
+
+                log.error("Parsed message: {}", message);
+                log.error("Parsed status: {}", status);
+                log.error(message, httpStatus);
+
+                // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                throw new ClientException(message, httpStatus);
+            } else {
+                log.error("Failed to parse JSON response body.");
+                throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
         }
 
         if (isCompanyExists) {
