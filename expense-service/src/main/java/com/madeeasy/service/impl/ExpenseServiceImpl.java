@@ -255,59 +255,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         ).toList();
     }
 
-//    @Override
-//    public byte[] generateExpenseInvoice(String companyDomain) {
-//        List<Expense> expenseList = expenseRepository.findByCompanyDomain(companyDomain);
-//
-//        try {
-//            Document document = new Document();
-//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//            PdfWriter.getInstance(document, outputStream);
-//            document.open();
-//
-//            // **Invoice Header**
-//            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-//            Paragraph title = new Paragraph("Expense Invoice", titleFont);
-//            title.setAlignment(Element.ALIGN_CENTER);
-//            document.add(title);
-//            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-//            document.add(new Paragraph("Generated on: " + LocalDateTime.now().format(formatter)));
-//            document.add(new Paragraph("\n"));
-//
-//            // **Create Table for Expenses**
-//            PdfPTable table = new PdfPTable(6);
-//            table.setWidthPercentage(100);
-//            table.setSpacingBefore(10f);
-//            table.setSpacingAfter(10f);
-//
-//            // **Define Column Headers**
-//            String[] headers = {"Expense ID", "Title", "Description", "Amount ($)", "Category", "Date"};
-//            for (String header : headers) {
-//                PdfPCell headerCell = new PdfPCell(new Phrase(header));
-//                headerCell.setBackgroundColor(new BaseColor(184, 218, 255));
-//                headerCell.setPadding(5);
-//                table.addCell(headerCell);
-//            }
-//
-//            // **Insert Data Rows**
-//            for (Expense expense : expenseList) {
-//                table.addCell(String.valueOf(expense.getId()));
-//                table.addCell(expense.getTitle());
-//                table.addCell(expense.getDescription());
-//                table.addCell("$" + expense.getAmount());
-//                table.addCell(expense.getCategory().toString());
-//                table.addCell(expense.getExpenseDate().toString());
-//            }
-//
-//            document.add(table);
-//            document.close();
-//
-//            return outputStream.toByteArray();
-//        } catch (Exception e) {
-//            log.error("Error generating invoice PDF", e);
-//            throw new RuntimeException("Failed to generate invoice", e);
-//        }
-//    }
 
     @Override
     public byte[] generateExpenseInvoice(String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth, String category) {
@@ -331,13 +278,19 @@ public class ExpenseServiceImpl implements ExpenseService {
             document.open();
 
             // **Invoice Header**
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+            Font titleFont = new Font(FontFactory.getFont(FontFactory.HELVETICA_BOLD).getFamily(), 18, Font.NORMAL, new BaseColor(33, 150, 243)); // Tech-friendly blue color
             Paragraph title = new Paragraph("Expense Invoice", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(20);  // Adding space after the title
             document.add(title);
+
+            // **Generated On Line**
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            document.add(new Paragraph("Generated on: " + LocalDateTime.now().format(formatter)));
-            document.add(new Paragraph("\n"));
+            Font generatedOnFont = new Font(FontFactory.getFont(FontFactory.HELVETICA).getFamily(), 12, Font.NORMAL, new BaseColor(0, 150, 136)); // Tech green color
+            Paragraph generatedOn = new Paragraph("Generated on: " + LocalDateTime.now().format(formatter), generatedOnFont);
+            generatedOn.setAlignment(Element.ALIGN_LEFT);
+            generatedOn.setSpacingAfter(20);  // Adding space after the "Generated on"
+            document.add(generatedOn);
 
             // **Create Table for Expenses**
             PdfPTable table = new PdfPTable(6);
@@ -349,19 +302,26 @@ public class ExpenseServiceImpl implements ExpenseService {
             String[] headers = {"Expense ID", "Title", "Description", "Amount ($)", "Category", "Date"};
             for (String header : headers) {
                 PdfPCell headerCell = new PdfPCell(new Phrase(header));
-                headerCell.setBackgroundColor(new BaseColor(184, 218, 255));
+                headerCell.setBackgroundColor(new BaseColor(184, 218, 255));  // Light blue header color
                 headerCell.setPadding(5);
                 table.addCell(headerCell);
             }
 
-            // **Insert Data Rows**
+            // **Insert Data Rows with alternating row colors**
+            boolean isEvenRow = true;
             for (Expense expense : expenseList) {
-                table.addCell(String.valueOf(expense.getId()));
-                table.addCell(expense.getTitle());
-                table.addCell(expense.getDescription());
-                table.addCell("$" + expense.getAmount());
-                table.addCell(expense.getCategory().toString());
-                table.addCell(expense.getExpenseDate().toString());
+                BaseColor rowColor = isEvenRow ? new BaseColor(245, 245, 245) : new BaseColor(255, 255, 255);  // Alternating row colors
+
+                // Set row color
+                table.addCell(createStyledCell(String.valueOf(expense.getId()), rowColor));
+                table.addCell(createStyledCell(expense.getTitle(), rowColor));
+                table.addCell(createStyledCell(expense.getDescription(), rowColor));
+                table.addCell(createStyledCell("$" + expense.getAmount(), rowColor));
+                table.addCell(createStyledCell(expense.getCategory().toString(), rowColor));
+                table.addCell(createStyledCell(expense.getExpenseDate().toString(), rowColor));
+
+                // Toggle row color for next row
+                isEvenRow = !isEvenRow;
             }
 
             document.add(table);
@@ -373,6 +333,15 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw new RuntimeException("Failed to generate invoice", e);
         }
     }
+
+    // Helper method to create a styled cell
+    private PdfPCell createStyledCell(String content, BaseColor rowColor) {
+        PdfPCell cell = new PdfPCell(new Phrase(content));
+        cell.setBackgroundColor(rowColor);
+        cell.setPadding(5);
+        return cell;
+    }
+
 
     @Override
     public List<ExpenseTrend> getMonthlyExpenseTrends(
