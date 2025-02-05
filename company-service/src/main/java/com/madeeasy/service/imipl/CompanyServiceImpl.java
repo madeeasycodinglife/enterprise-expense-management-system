@@ -3,10 +3,12 @@ package com.madeeasy.service.imipl;
 import com.madeeasy.dto.request.CompanyRequestDTO;
 import com.madeeasy.dto.response.CompanyResponseDTO;
 import com.madeeasy.entity.Company;
+import com.madeeasy.exception.ClientException;
 import com.madeeasy.repository.CompanyRepository;
 import com.madeeasy.service.CompanyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +40,7 @@ public class CompanyServiceImpl implements CompanyService {
 
     @Override
     public CompanyResponseDTO getCompanyByDomainName(String domain) {
-        Company foundCompany = this.companyRepository.findByDomain(domain).orElseThrow(() -> new RuntimeException("Invalid company Domain"));
+        Company foundCompany = this.companyRepository.findByDomain(domain).orElseThrow(() -> new ClientException("Invalid Company Domain or Company Domain Not Found !", HttpStatus.NOT_FOUND));
 
         return CompanyResponseDTO.builder()
                 .id(foundCompany.getId())
