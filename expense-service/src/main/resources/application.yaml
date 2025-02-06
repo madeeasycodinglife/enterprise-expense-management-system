@@ -28,6 +28,23 @@ spring:
       enabled: ALWAYS
 
 
+resilience4j:
+  circuitbreaker:
+    configs:
+      expenseServiceCircuitBreaker:
+        registerHealthIndicator: true
+        failureRateThreshold: 20
+        minimumNumberOfCalls: 5
+        slidingWindowSize: 10
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        slidingWindowType: COUNT_BASED
+    instances:
+      myCircuitBreaker: # this name is used in the annotation
+        baseConfig: expenseServiceCircuitBreaker
+
+
 security:
   authorization:
     paths:

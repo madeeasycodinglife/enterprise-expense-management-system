@@ -21,7 +21,9 @@ import com.madeeasy.service.ExpenseService;
 import com.madeeasy.vo.ApprovalRequestDTO;
 import com.madeeasy.vo.CompanyResponseDTO;
 import com.madeeasy.vo.UserResponse;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -35,11 +37,13 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 
 @Slf4j
@@ -50,8 +54,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
     private final HttpServletRequest httpServletRequest;
+    private final HttpServletResponse httpServletResponse;
 
+    @CircuitBreaker(name = "expenseServiceCircuitBreaker", fallbackMethod = "fallbackMethod")
     @Override
     public void submitExpense(ExpenseRequestDTO expenseRequestDTO) {
         // Get the current authenticated user's email
@@ -64,76 +71,22 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         // Rest call to auth-service to get user details by email
         String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + emailId;
-        UserResponse userResponse = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
-                new HttpEntity<>(createHeaders(accessToken)), UserResponse.class).getBody();
-        if (userResponse == null) {
-            throw new IllegalStateException("Unable to fetch user information.");
-        }
 
-        Long userId = userResponse.getId();
+        try {
+            UserResponse userResponse = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
+                    new HttpEntity<>(createHeaders(accessToken)), UserResponse.class).getBody();
+            if (userResponse == null) {
+                throw new IllegalStateException("Unable to fetch user information.");
+            }
 
-        // Rest call to company-service to get company domain
-        String companyUrlToGetCompany = "http://localhost:8082/company-service/domain-name/" + userResponse.getCompanyDomain();
-        CompanyResponseDTO companyResponse = restTemplate.exchange(companyUrlToGetCompany, HttpMethod.GET,
-                new HttpEntity<>(createHeaders(accessToken)), CompanyResponseDTO.class).getBody();
-        if (companyResponse == null) {
-            throw new IllegalStateException("Unable to fetch company information.");
-        }
+            Long userId = userResponse.getId();
 
-        // Define the threshold for auto-approval
-        BigDecimal approvalThreshold = new BigDecimal("5000"); // Example: Auto-approve if <= 5000
-
-        // Create an Expense entity and set required fields
-        Expense expense = new Expense();
-        expense.setEmployeeId(userId);
-        expense.setCompanyDomain(companyResponse.getDomain());
-        expense.setTitle(expenseRequestDTO.getTitle());
-        expense.setDescription(expenseRequestDTO.getDescription());
-        expense.setAmount(expenseRequestDTO.getAmount());
-        expense.setCategory(expenseRequestDTO.getCategory());
-        expense.setExpenseDate(expenseRequestDTO.getExpenseDate());
-
-        if (expenseRequestDTO.getAmount().compareTo(approvalThreshold) <= 0) {
-            // Auto-approve expense
-            expense.setStatus(ExpenseStatus.APPROVED);
-            // Save the expense to the database
-            expenseRepository.save(expense);
-            log.info("Expense auto-approved: {} by user {}", expenseRequestDTO.getAmount(), userId);
-        } else {
-            // Requires multi-level approval
-            expense.setStatus(ExpenseStatus.SUBMITTED);
-            // Save the expense to the database
-            expenseRepository.save(expense);
-            // Construct the ApprovalRequestDTO object
-            ApprovalRequestDTO approvalRequestDTO = ApprovalRequestDTO.builder()
-                    .expenseId(expense.getId())
-                    .companyDomain(expense.getCompanyDomain())
-                    .title(expense.getTitle())
-                    .description(expense.getDescription())
-                    .amount(expense.getAmount())
-                    .category(expense.getCategory())
-                    .expenseDate(expense.getExpenseDate())
-                    .build();
-
-            // Set up the headers (set content type as JSON)
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.CONTENT_TYPE, String.valueOf(MediaType.APPLICATION_JSON));
-            headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken); // Assuming authorization header is needed
-
-            // Create an HttpEntity with the body and headers
-            HttpEntity<ApprovalRequestDTO> requestEntity = new HttpEntity<>(approvalRequestDTO, headers);
-
-            // Make the POST request (assuming the endpoint expects a POST request)
-            String approvalUrl = "http://localhost:8085/approval-service/ask-for-approve";
-            ResponseEntity<Void> response = null;
+            // Rest call to company-service to get company domain
+            String companyUrlToGetCompany = "http://localhost:8082/company-service/domain-name/" + userResponse.getCompanyDomain();
+            CompanyResponseDTO companyResponse = null;
             try {
-                response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
-
-                if (response.getStatusCode() == HttpStatus.OK) {
-                    log.info("Approval request sent successfully.");
-                } else {
-                    log.error("Failed to send approval request: {}", response.getStatusCode());
-                }
+                companyResponse = restTemplate.exchange(companyUrlToGetCompany, HttpMethod.GET,
+                        new HttpEntity<>(createHeaders(accessToken)), CompanyResponseDTO.class).getBody();
             } catch (HttpClientErrorException | HttpServerErrorException e) {
                 String responseBody = e.getResponseBodyAsString();
                 // Parse the response body (which is a JSON string)
@@ -147,27 +100,240 @@ public class ExpenseServiceImpl implements ExpenseService {
 
                 if (jsonNode != null) {
                     String message = jsonNode.get("message").asText();
-                    String status = jsonNode.get("status").asText();
+                    String statusStr = jsonNode.get("status").asText().substring(0, 3);
 
-                    HttpStatus httpStatus;
-                    try {
-                        httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
-                    } catch (IllegalArgumentException e2) {
-                        log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
-                        httpStatus = HttpStatus.UNAUTHORIZED;
-                    }
+                    // Convert the status code to integer and map it to HttpStatus
+                    int statusCode = Integer.parseInt(statusStr);
+
+                    // Use HttpStatus.valueOf() with the numeric status code value
+                    HttpStatus status = HttpStatus.resolve(statusCode);
+
+//                    HttpStatus httpStatus;
+//                    try {
+//                        httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+//                    } catch (IllegalArgumentException e2) {
+//                        log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+//                        httpStatus = HttpStatus.UNAUTHORIZED;
+//                    }
 
                     log.error("Parsed message: {}", message);
                     log.error("Parsed status: {}", status);
 
                     // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
-                    throw new ClientException(message, httpStatus);
+                    throw new ClientException(message, status);
                 } else {
                     log.error("Failed to parse JSON response body.");
                     throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
                 }
             }
 
+            if (companyResponse == null) {
+                throw new IllegalStateException("Unable to fetch company information.");
+            }
+
+            // Define the threshold for auto-approval
+            BigDecimal approvalThreshold = new BigDecimal("5000"); // Example: Auto-approve if <= 5000
+
+            // Create an Expense entity and set required fields
+            Expense expense = new Expense();
+            expense.setEmployeeId(userId);
+            expense.setCompanyDomain(companyResponse.getDomain());
+            expense.setTitle(expenseRequestDTO.getTitle());
+            expense.setDescription(expenseRequestDTO.getDescription());
+            expense.setAmount(expenseRequestDTO.getAmount());
+            expense.setCategory(expenseRequestDTO.getCategory());
+            expense.setExpenseDate(expenseRequestDTO.getExpenseDate());
+
+            if (expenseRequestDTO.getAmount().compareTo(approvalThreshold) <= 0) {
+                // Auto-approve expense
+                expense.setStatus(ExpenseStatus.APPROVED);
+                // Save the expense to the database
+                expenseRepository.save(expense);
+                log.info("Expense auto-approved: {} by user {}", expenseRequestDTO.getAmount(), userId);
+            } else {
+                // Requires multi-level approval
+                expense.setStatus(ExpenseStatus.SUBMITTED);
+                // Save the expense to the database
+                expenseRepository.save(expense);
+                // Construct the ApprovalRequestDTO object
+                ApprovalRequestDTO approvalRequestDTO = ApprovalRequestDTO.builder()
+                        .expenseId(expense.getId())
+                        .companyDomain(expense.getCompanyDomain())
+                        .title(expense.getTitle())
+                        .description(expense.getDescription())
+                        .amount(expense.getAmount())
+                        .category(expense.getCategory())
+                        .expenseDate(expense.getExpenseDate())
+                        .build();
+
+                // Set up the headers (set content type as JSON)
+                HttpHeaders headers = new HttpHeaders();
+                headers.set(HttpHeaders.CONTENT_TYPE, String.valueOf(MediaType.APPLICATION_JSON));
+                headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken); // Assuming authorization header is needed
+
+                // Create an HttpEntity with the body and headers
+                HttpEntity<ApprovalRequestDTO> requestEntity = new HttpEntity<>(approvalRequestDTO, headers);
+
+                // Make the POST request (assuming the endpoint expects a POST request)
+                String approvalUrl = "http://localhost:8085/approval-service/ask-for-approve";
+                ResponseEntity<Void> response = null;
+                try {
+                    response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
+
+                    if (response.getStatusCode() == HttpStatus.OK) {
+                        log.info("Approval request sent successfully.");
+                    } else {
+                        log.error("Failed to send approval request: {}", response.getStatusCode());
+                    }
+                } catch (HttpClientErrorException | HttpServerErrorException e) {
+                    String responseBody = e.getResponseBodyAsString();
+                    // Parse the response body (which is a JSON string)
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode jsonNode = null;
+                    try {
+                        jsonNode = objectMapper.readTree(responseBody);
+                    } catch (JsonProcessingException ex) {
+                        log.error("Failed to parse response body: {}", ex.getMessage());
+                    }
+
+                    if (jsonNode != null) {
+                        String message = jsonNode.get("message").asText();
+                        String status = jsonNode.get("status").asText();
+
+                        HttpStatus httpStatus;
+                        try {
+                            httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+                        } catch (IllegalArgumentException e2) {
+                            log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+                            httpStatus = HttpStatus.UNAUTHORIZED;
+                        }
+
+                        log.error("Parsed message: {}", message);
+                        log.error("Parsed status: {}", status);
+
+                        // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                        throw new ClientException(message, httpStatus);
+                    } else {
+                        log.error("Failed to parse JSON response body.");
+                        throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                    }
+                }
+
+            }
+        } catch (HttpClientErrorException.Unauthorized e) {
+            log.error("Authorization failed: {}", e.getResponseBodyAsString());
+
+            // Get the response body (JSON) from the exception
+            String responseBody = e.getResponseBodyAsString();
+
+            // Parse the response body (which is a JSON string)
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = null;
+            try {
+                jsonNode = objectMapper.readTree(responseBody);
+            } catch (JsonProcessingException ex) {
+                log.error("Failed to parse response body: {}", ex.getMessage());
+            }
+
+            if (jsonNode != null) {
+                String message = jsonNode.get("message").asText();
+                String status = jsonNode.get("status").asText();
+
+                HttpStatus httpStatus;
+                try {
+                    httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+                } catch (IllegalArgumentException e2) {
+                    log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+                    httpStatus = HttpStatus.UNAUTHORIZED;
+                }
+
+                log.error("Parsed message: {}", message);
+                log.error("Parsed status: {}", status);
+
+                // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                throw new ClientException(message, httpStatus);
+            } else {
+                log.error("Failed to parse JSON response body.");
+                throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        } catch (HttpClientErrorException e) {
+            log.error("HTTP error occurred: {}", e.getResponseBodyAsString());
+
+            // Get the response body (JSON) from the exception
+            String responseBody = e.getResponseBodyAsString();
+
+            // Parse the response body (which is a JSON string)
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = null;
+            try {
+                jsonNode = objectMapper.readTree(responseBody);
+            } catch (JsonProcessingException ex) {
+                log.error("Failed to parse response body: {}", ex.getMessage());
+            }
+
+            // Extract message and status
+            String message = jsonNode.get("message").asText();
+            String status = jsonNode.get("status").asText();
+
+            // Check the status to decide whether it's 401 or 404, etc.
+            HttpStatus httpStatus = HttpStatus.valueOf(status); // Convert the status string to HttpStatus
+
+            // Handle 404 NOT_FOUND specifically
+            if (httpStatus == HttpStatus.NOT_FOUND) {
+                log.error("User not found: {}", message);
+                // Here we throw a ClientException with 404 status
+                throw new ClientException(message, httpStatus);
+            } else if (httpStatus == HttpStatus.UNAUTHORIZED) {
+                log.error("Authorization failed: {}", message);
+                // Handle unauthorized error as you did earlier
+                throw new ClientException(message, httpStatus);
+            } else {
+                // If it's another error, we might still want to use a ResourceException
+                throw new ClientException(message, httpStatus);
+            }
+        }
+
+    }
+
+    // Fallback method for circuit breaker with specific service failure messages
+    public void fallbackMethod(ExpenseRequestDTO expenseRequestDTO, Throwable t) {
+        log.error("Circuit breaker triggered: {}", t.getMessage());
+
+        if (t instanceof ClientException) {
+            throw (ClientException) t;  // Propagate the original ClientException (method -> fallback-> Exception Handler)
+        }
+
+        // If the failure is related to a service, handle accordingly
+        String serviceName = getFailedServiceName(t);
+        String errorMessage = String.format("Service '%s' is currently unavailable. Please try again later.", serviceName);
+
+        log.error("Circuit breaker triggered: {}", errorMessage);
+
+        // Set the response status and message in HttpServletResponse
+        try {
+            httpServletResponse.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE); // 503 Service Unavailable
+            Map<String, Object> errorResponse = Map.of(
+                    "status", HttpStatus.SERVICE_UNAVAILABLE,
+                    "message", errorMessage
+            );
+            httpServletResponse.setContentType("application/json");
+            httpServletResponse.getWriter().write(objectMapper.writeValueAsString(errorResponse));
+        } catch (IOException e) {
+            log.error("Failed to send response: {}", e.getMessage());
+        }
+
+    }
+
+    // Helper method to determine the service that failed
+    private String getFailedServiceName(Throwable t) {
+        if (t.getMessage().contains("auth-service")) {
+            return "auth-service";
+        } else if (t.getMessage().contains("company-service")) {
+            return "company-service";
+        } else if (t.getMessage().contains("approval-service")) {
+            return "approval-service";
+        } else {
+            return "Unknown service";
         }
     }
 
