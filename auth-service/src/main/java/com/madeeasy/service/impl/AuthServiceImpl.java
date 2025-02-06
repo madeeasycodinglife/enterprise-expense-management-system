@@ -19,6 +19,7 @@ import com.madeeasy.repository.UserRepository;
 import com.madeeasy.service.AuthService;
 import com.madeeasy.util.JwtUtils;
 import com.madeeasy.vo.Company;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpMethod;
@@ -55,7 +56,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
 //    @Retry(name = "companyServiceRetry", fallbackMethod = "companyServiceFallback")
-//    @CircuitBreaker(name = "companyServiceCircuitBreaker", fallbackMethod = "companyServiceFallback")
+    @CircuitBreaker(name = "companyServiceCircuitBreaker", fallbackMethod = "companyServiceFallback")
     public AuthResponse singUp(AuthRequest authRequest) {
         String normalizedRole = authRequest.getRole().toUpperCase();
 
