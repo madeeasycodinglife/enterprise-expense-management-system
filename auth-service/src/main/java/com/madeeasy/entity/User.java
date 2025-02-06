@@ -1,6 +1,7 @@
 package com.madeeasy.entity;
 
 
+import com.madeeasy.audit.AuditModel;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table(name = "`user`")
-public class User implements Serializable {
+public class User extends AuditModel implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_sequence_generator")
