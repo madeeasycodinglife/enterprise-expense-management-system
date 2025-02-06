@@ -15,6 +15,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -293,7 +294,11 @@ public class NotificationServiceImpl implements NotificationService {
         helper.setSubject(subject);
         helper.setText(content, true); // true -> send as HTML
 
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (MailException e) {
+            log.error("Error : {}", e.getCause());
+        }
         log.info("Approval email sent to {}", to);
     }
 }
