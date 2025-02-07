@@ -20,6 +20,14 @@ spring:
             enable: true
 
 
+security:
+  authorization:
+    paths:
+      - path: /notification-service/
+        method: POST
+        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE,MANAGER,FINANCE,ADMIN}
+
+
 resilience4j:
   circuitbreaker:
     configs:
