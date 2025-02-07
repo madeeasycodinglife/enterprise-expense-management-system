@@ -122,23 +122,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+//    private boolean requiresAuthorization(HttpServletRequest request) {
+//        String uri = request.getRequestURI();
+//        String method = request.getMethod();
+//
+//
+//        // Initialize the path matcher to handle wildcard patterns
+//        PathMatcher pathMatcher = new AntPathMatcher();
+//
+//
+//        // Check if any configured path matches the URI and HTTP method
+//
+//        return securityConfigProperties.getPaths().stream()
+//                .anyMatch(config ->
+//                        pathMatcher.match(config.getPath(), uri) &&
+//                                method.equalsIgnoreCase(config.getMethod()) &&
+//                                !config.getRoles().isEmpty()
+//                );
+//    }
+
     private boolean requiresAuthorization(HttpServletRequest request) {
         String uri = request.getRequestURI();
         String method = request.getMethod();
 
-
         // Initialize the path matcher to handle wildcard patterns
         PathMatcher pathMatcher = new AntPathMatcher();
 
-
-        // Check if any configured path matches the URI and HTTP method
-
+        // Iterate over all configured paths
         return securityConfigProperties.getPaths().stream()
-                .anyMatch(config ->
-                        pathMatcher.match(config.getPath(), uri) &&
-                                method.equalsIgnoreCase(config.getMethod()) &&
-                                !config.getRoles().isEmpty()
-                );
+                .anyMatch(config -> {
+                    // Split the comma-separated methods into a list
+                    List<String> allowedMethods = List.of(config.getMethod().split(",\\s*"));
+                    // Check if the method matches any of the allowed methods
+                    return allowedMethods.contains(method) && pathMatcher.match(config.getPath(), uri) && !config.getRoles().isEmpty();
+                });
     }
 
 

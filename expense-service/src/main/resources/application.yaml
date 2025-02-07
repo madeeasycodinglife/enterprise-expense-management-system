@@ -48,6 +48,6 @@ resilience4j:
 security:
   authorization:
     paths:
-      - path: /expense-service/submit
-        method: POST
-        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE}
+      - path: /expense-service/**
+        method: GET, POST, PATCH, DELETE
+        roles: ${SECURITY_AUTHORIZATION_PATHS_ROLES:EMPLOYEE}
