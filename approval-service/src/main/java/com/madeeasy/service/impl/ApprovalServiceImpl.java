@@ -198,8 +198,15 @@ public class ApprovalServiceImpl implements ApprovalService {
             // Rest call to notification-services to send email
             String notificationUrl = "http://localhost:8084/notification-service/";
             try {
+                // Prepare headers
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + accessToken);  // Add the accessToken as Bearer token
+
                 // Your logic to call the notification service
-                restTemplate.postForObject(notificationUrl, requestBody, Void.class);
+                // Wrap the body and headers into an HttpEntity
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+                restTemplate.exchange(notificationUrl, HttpMethod.POST, entity, Void.class);
             } catch (HttpClientErrorException | HttpServerErrorException e) {
                 // Log the error details
                 log.error("Error while calling notification service: {}", e.getMessage());
@@ -477,7 +484,30 @@ public class ApprovalServiceImpl implements ApprovalService {
         System.out.println("Ready to sent another notification");
         // Send the notification to the next approver
         String notificationUrl = "http://localhost:8084/notification-service/";
-        restTemplate.postForObject(notificationUrl, requestBody, Void.class);
+        try {
+            // Prepare headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + accessToken);  // Add the accessToken as Bearer token
+
+            // Your logic to call the notification service
+            // Wrap the body and headers into an HttpEntity
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            restTemplate.exchange(notificationUrl, HttpMethod.POST, entity, Void.class);
+
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // Log the error details
+            log.error("Error while calling notification service: {}", e.getMessage());
+
+            // Check if the status is 503 (Service Unavailable) and handle it
+            if (e.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+                // Return a more specific error response
+                throw new ResourceException("Notification service is currently unavailable. Please try again later.");
+            }
+
+            // If it’s some other type of error, you can throw a different exception or handle accordingly
+            throw new ResourceException("An error occurred while accessing the notification service.");
+        }
         System.out.println("Notification sent");
     }
 

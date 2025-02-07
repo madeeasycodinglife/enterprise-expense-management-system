@@ -200,6 +200,10 @@ public class AuthServiceImpl implements AuthService {
 
     // Fallback method for when the company service call fails
     private AuthResponse companyServiceFallback(AuthRequest authRequest, Throwable throwable) {
+        // If the cause of the failure is a ClientException, rethrow it
+        if (throwable instanceof ClientException) {
+            throw (ClientException) throwable;  // Propagate the original ClientException
+        }
         return AuthResponse.builder()
                 .message("Company service is unavailable at the moment. Please try again later.")
                 .status(HttpStatus.SERVICE_UNAVAILABLE)
