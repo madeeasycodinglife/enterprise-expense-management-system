@@ -1,7 +1,9 @@
 package com.madeeasy.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.madeeasy.entity.Notification;
 import com.madeeasy.exception.ResourceAccessException;
+import com.madeeasy.repository.NotificationRepository;
 import com.madeeasy.service.NotificationService;
 import com.madeeasy.vo.UserResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -27,6 +29,7 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -43,6 +46,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final RestTemplate restTemplate;
     private final HttpServletResponse httpServletResponse;
     private final ObjectMapper objectMapper;
+    private final NotificationRepository notificationRepository;
 
     @CircuitBreaker(name = "notificationServiceCircuitBreaker", fallbackMethod = "circuitBreakerFallback")
     @Override
@@ -132,8 +136,24 @@ public class NotificationServiceImpl implements NotificationService {
         } catch (MessagingException e) {
             log.error("Failed to send approval email", e);
         }
+        // Save to Audit Database after sending the email
+        saveNotificationAudit(expenseId, title, description, category, emailId, role);
+    }
 
+    private void saveNotificationAudit(Long expenseId, String title, String description, String category,
+                                       String emailId, String role) {
+        Notification auditNotification = Notification.builder()
+                .expenseId(expenseId)
+                .title(title)
+                .description(description)
+                .category(category)
+                .emailId(emailId)
+                .role(role)
+                .notificationSentAt(new Date())  // Time when the notification was sent
+                .build();
 
+        this.notificationRepository.save(auditNotification);  // Save to the database
+        log.info("Notification audit saved for expenseId: {}", expenseId);
     }
 
     // Helper method to extract JSON part from error message and convert it into a Map
