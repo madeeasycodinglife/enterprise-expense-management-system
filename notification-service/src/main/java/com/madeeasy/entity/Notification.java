@@ -1,6 +1,5 @@
 package com.madeeasy.entity;
 
-import com.madeeasy.audit.AuditModel;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,7 +14,7 @@ import java.util.Date;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-public class Notification extends AuditModel implements Serializable {
+public class Notification implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "notification_sequence")
     @SequenceGenerator(

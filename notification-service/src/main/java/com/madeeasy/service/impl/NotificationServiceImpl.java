@@ -82,7 +82,8 @@ public class NotificationServiceImpl implements NotificationService {
             }
 
             // Extract the accessToken
-            accessToken = queryParams.get("accessToken");
+//            accessToken = queryParams.get("accessToken");
+            accessToken = getAccessToken(this.httpServletRequest);
             role = queryParams.get("role");
             // Output the accessToken
             System.out.println("Access Token: " + accessToken);
@@ -138,6 +139,21 @@ public class NotificationServiceImpl implements NotificationService {
         }
         // Save to Audit Database after sending the email
         saveNotificationAudit(expenseId, title, description, category, emailId, role);
+        log.info("Approval Email sent to : {}", emailId);
+    }
+
+    public String getAccessToken(HttpServletRequest request) {
+        // Get the Authorization header from the request
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        // Check if the Authorization header is not null and starts with "Bearer "
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            // Extract the token by removing the "Bearer " part
+            return authHeader.substring("Bearer ".length());
+        }
+
+        // If the header is not in the expected format, return null or throw an exception as needed
+        return null; // Or you could throw an exception to indicate invalid token
     }
 
     private void saveNotificationAudit(Long expenseId, String title, String description, String category,
