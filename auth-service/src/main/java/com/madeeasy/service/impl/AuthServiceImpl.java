@@ -72,7 +72,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Rest Call To Company Service to check if Company exists or Not
-        String url = "http://localhost:8082/company-service/domain-name/" + authRequest.getCompanyDomain();
+        String url = "http://company-service/company-service/domain-name/" + authRequest.getCompanyDomain();
         boolean isCompanyExists = false;
 
         System.out.println("Company Service is being called.....");
