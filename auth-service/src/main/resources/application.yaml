@@ -1,6 +1,7 @@
 server:
   port: ${SERVER_PORT:8081}
 
+
 spring:
   application:
     name: auth-service
@@ -108,5 +109,10 @@ eureka:
 
 
 
-
-
+springdoc:
+  api-docs:
+    groups:
+      enabled: true
+    path: /auth-service/v3/api-docs
+  swagger-ui:
+    enabled: false
