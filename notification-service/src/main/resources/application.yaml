@@ -76,3 +76,10 @@ eureka:
     lease-renewal-interval-in-seconds: ${EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS:10}
     lease-expiration-duration-in-seconds: ${EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS:90}
 
+springdoc:
+  api-docs:
+    groups:
+      enabled: true
+    path: /notification-service/v3/api-docs
+  swagger-ui:
+    enabled: false
