@@ -1,7 +1,6 @@
 server:
   port: 8080
 
-
 spring:
   output:
     ansi:
@@ -12,7 +11,7 @@ spring:
   application:
     name: api-gateway
 
-#
+  #
 
   cloud:
     gateway:
@@ -35,7 +34,7 @@ spring:
         - id: approval-service
           uri: ${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_SERVICE_URI:lb://approval-service}
           predicates:
-            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_SERVICE_PREDICATES_PATH:/approval-service/ask-for-approve}
+            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_SERVICE_PREDICATES_PATH:/approval-service/**}
           filters:
             - name: CircuitBreaker
               args:
@@ -134,6 +133,13 @@ eureka:
     prefer-ip-address: ${EUREKA_INSTANCE_PREFER_IP_ADDRESS:true}
     lease-renewal-interval-in-seconds: ${EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS:10}
     lease-expiration-duration-in-seconds: ${EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS:90}
+
+
+springdoc:
+  swagger-ui:
+    url: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
 
 
 # Security Configuration for Actuator Endpoints

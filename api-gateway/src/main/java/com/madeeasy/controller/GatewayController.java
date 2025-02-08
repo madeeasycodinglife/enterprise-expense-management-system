@@ -8,9 +8,9 @@ import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.Map;
-
-@RestController
-@RequestMapping("/fallback")
+//
+//@RestController
+//@RequestMapping("/fallback")
 public class GatewayController {
 
     @RequestMapping(path = "/approval-service")
