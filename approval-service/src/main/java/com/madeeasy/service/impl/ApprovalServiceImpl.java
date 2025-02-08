@@ -17,11 +17,10 @@ import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
@@ -32,6 +31,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +44,10 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     private final ApprovalRepository approvalRepository;
     private final RestTemplate restTemplate;
+    private final RestTemplate localRestTemplate;
     private final JwtUtils jwtUtils;
     private final HttpServletRequest httpServletRequest;
+    private final DiscoveryClient discoveryClient;
 
     //    @Retry(name = "approvalServiceRetry", fallbackMethod = "retryFallback")
 //    @CircuitBreaker(name = "approvalServiceCircuitBreaker", fallbackMethod = "circuitBreakerFallback")
@@ -161,7 +163,7 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         try {
             // Rest call with authorization header to get user details by company domain and role
-            String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + expenseRequestDTO.getCompanyDomain() + "/" + "MANAGER";
+            String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + expenseRequestDTO.getCompanyDomain() + "/" + "MANAGER";
             List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
                     new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
                     }).getBody();
@@ -184,10 +186,25 @@ public class ApprovalServiceImpl implements ApprovalService {
                     "&expenseDate=" + URLEncoder.encode(expenseRequestDTO.getExpenseDate().toString(), StandardCharsets.UTF_8) +
                     "&accessToken=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8) +
                     "&emailId=" + URLEncoder.encode(managerEmail, StandardCharsets.UTF_8);// in future call to auth-service and by company domain get manager emailId and set here
+            // Get healthy approval service URLs
+            List<String> healthyServiceUrls = getApprovalServiceUrls();
+
+            if (healthyServiceUrls.isEmpty()) {
+                // Handle error (e.g., no healthy instances available)
+                return;
+            }
+
+            // Pick a random URL from the healthy services list
+            String approvalServiceUrl = healthyServiceUrls.getFirst();  // You can add more logic for load balancing if needed
+
 
             // Send email to Manager for approval
-            String approveLink = "http://localhost:8085/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
-            String rejectLink = "http://localhost:8085/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+//            String approveLink = "http://approval-service/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+//            String rejectLink = "http://approval-service/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+            // Construct the approval and rejection links
+            String approveLink = "http://" + approvalServiceUrl + "/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+            String rejectLink = "http://" + approvalServiceUrl + "/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+
 
             // Create the request body, including expense details and links
             Map<String, Object> requestBody = new HashMap<>();
@@ -196,7 +213,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             requestBody.put("rejectLink", rejectLink);          // Rejection link
 
             // Rest call to notification-services to send email
-            String notificationUrl = "http://localhost:8084/notification-service/";
+            String notificationUrl = "http://notification-service/notification-service/";
             try {
                 // Prepare headers
                 HttpHeaders headers = new HttpHeaders();
@@ -307,6 +324,47 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     }
 
+
+    // Method to check if a service is healthy
+    private boolean isServiceHealthy(String host, int port) {
+        try {
+            // Send a GET request to the health check endpoint of the service
+            String healthCheckUrl = "http://" + host + ":" + port + "/actuator/health"; // Assuming Actuator is used for health check
+            ResponseEntity<String> response = this.localRestTemplate.exchange(healthCheckUrl, HttpMethod.GET, null, String.class);
+
+            // If status code is 200 OK, the service is healthy
+            return response.getStatusCode() == HttpStatus.OK;
+        } catch (Exception e) {
+            // In case of any error (e.g., service is down), consider the service unhealthy
+            return false;
+        }
+    }
+
+    // Method to get the approval service URLs with health checks
+    public List<String> getApprovalServiceUrls() {
+        // Get all instances of 'approval-service' registered in Eureka
+        List<ServiceInstance> serviceInstances = discoveryClient.getInstances("approval-service");
+
+        // Create a list to store the URLs in the format 'localhost:port'
+        List<String> serviceUrls = new ArrayList<>();
+
+        // Iterate over the instances and extract the host and port
+        for (ServiceInstance instance : serviceInstances) {
+            String host = instance.getHost();  // Get the IP address or hostname of the instance
+            int port = instance.getPort();       // Get the port number of the instance
+
+            if (isServiceHealthy(host, port)) {
+                // Build the URL in the format 'localhost:port'
+                String serviceUrl = host + ":" + port;
+                serviceUrls.add(serviceUrl);  // Add the URL to the list
+                log.info("host: {}, port: {}", host, port);
+            }
+        }
+
+        return serviceUrls;  // Return only healthy services
+    }
+
+
     // Fallback method for retry
     public void retryFallback(ExpenseRequestDTO expenseRequestDTO, UnsupportedEncodingException e) {
         log.error("Retry failed after multiple attempts for askForApproval: {}", e.getMessage());
@@ -379,7 +437,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             currentApproval.setStatus(ApprovalStatus.APPROVED);
             this.approvalRepository.save(currentApproval);
             // rest call with authorization herader to get user details by company domain and role
-            String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "FINANCE";
+            String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "FINANCE";
             List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
                     new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
                     }).getBody();
@@ -408,7 +466,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             currentApproval.setStatus(ApprovalStatus.APPROVED);
             this.approvalRepository.save(currentApproval);
             // rest call with authorization herader to get user details by company domain and role
-            String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "ADMIN";
+            String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "ADMIN";
             List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
                     new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
                     }).getBody();
@@ -468,10 +526,21 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         System.out.println("Encoded expense details: " + expenseDetails);
 
+        // Get healthy approval service URLs
+        List<String> healthyServiceUrls = getApprovalServiceUrls();
+
+        if (healthyServiceUrls.isEmpty()) {
+            // Handle error (e.g., no healthy instances available)
+            return;
+        }
+
+        // Pick a random URL from the healthy services list
+        String approvalServiceUrl = healthyServiceUrls.getFirst();  // You can add more logic for load balancing if needed
+
 
         // Prepare the approval/rejection links with the expense details and the role for the next approver
-        String approveLink = "http://localhost:8085/approval-service/approve?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
-        String rejectLink = "http://localhost:8085/approval-service/reject?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
+        String approveLink = "http://" + approvalServiceUrl + "/approval-service/approve?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
+        String rejectLink = "http://" + approvalServiceUrl + "/approval-service/reject?" + expenseDetails + "&emailId=" + emailId + "&role=" + role;
 
         System.out.println("Inside sendNextApproval method !!");
         System.out.println("approveLink " + approveLink + " rejectLink " + rejectLink);
@@ -483,7 +552,7 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         System.out.println("Ready to sent another notification");
         // Send the notification to the next approver
-        String notificationUrl = "http://localhost:8084/notification-service/";
+        String notificationUrl = "http://notification-service/notification-service/";
         try {
             // Prepare headers
             HttpHeaders headers = new HttpHeaders();
