@@ -70,7 +70,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         String accessToken = authHeader.substring("Bearer ".length());
 
         // Rest call to auth-service to get user details by email
-        String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + emailId;
+        String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + emailId;
 
         try {
             UserResponse userResponse = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
@@ -82,7 +82,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             Long userId = userResponse.getId();
 
             // Rest call to company-service to get company domain
-            String companyUrlToGetCompany = "http://localhost:8082/company-service/domain-name/" + userResponse.getCompanyDomain();
+            String companyUrlToGetCompany = "http://company-service/company-service/domain-name/" + userResponse.getCompanyDomain();
             CompanyResponseDTO companyResponse = null;
             try {
                 companyResponse = restTemplate.exchange(companyUrlToGetCompany, HttpMethod.GET,
@@ -175,7 +175,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                 HttpEntity<ApprovalRequestDTO> requestEntity = new HttpEntity<>(approvalRequestDTO, headers);
 
                 // Make the POST request (assuming the endpoint expects a POST request)
-                String approvalUrl = "http://localhost:8085/approval-service/ask-for-approve";
+                String approvalUrl = "http://approval-service/approval-service/ask-for-approve";
                 ResponseEntity<Void> response = null;
                 try {
                     response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);

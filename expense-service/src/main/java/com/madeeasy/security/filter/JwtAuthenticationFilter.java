@@ -70,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             // Validate token using external service
-            String authUrl = "http://localhost:8081/auth-service/validate-access-token/" + token;
+            String authUrl = "http://auth-service/auth-service/validate-access-token/" + token;
 
             try {
                 ResponseEntity<Boolean> authResponse = restTemplate.exchange(
