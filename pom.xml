@@ -28,6 +28,7 @@
         <module>company-service</module>
         <module>notification-service</module>
         <module>approval-service</module>
+        <module>api-gateway</module>
     </modules>
     <scm>
         <connection/>

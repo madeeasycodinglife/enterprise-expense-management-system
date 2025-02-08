@@ -1,0 +1,143 @@
+server:
+  port: 8080
+
+
+spring:
+  output:
+    ansi:
+      enabled: ALWAYS
+
+  main:
+    web-application-type: reactive
+  application:
+    name: api-gateway
+
+#
+
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=${SPRING_CLOUD_GATEWAY_DEFAULT_FILTERS_DEDUPE_RESPONSE_HEADER:Access-Control-Allow-Origin}
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: ${SPRING_CLOUD_GATEWAY_GLOBALCORS_CORS_CONFIGURATIONS__ALLOWED_ORIGINS:http://localhost:5173}
+            allowed-methods: ${SPRING_CLOUD_GATEWAY_GLOBALCORS_CORS_CONFIGURATIONS__ALLOWED_METHODS:*}
+            allowed-headers: ${SPRING_CLOUD_GATEWAY_GLOBALCORS_CORS_CONFIGURATIONS__ALLOWED_HEADERS:*}
+            allow-credentials: ${SPRING_CLOUD_GATEWAY_GLOBALCORS_CORS_CONFIGURATIONS__ALLOW_CREDENTIALS:true}
+
+      discovery:
+        locator:
+          enabled: ${SPRING_CLOUD_GATEWAY_DISCOVERY_LOCATOR_ENABLED:true}
+
+      routes:
+
+        - id: approval-service
+          uri: ${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_SERVICE_URI:lb://approval-service}
+          predicates:
+            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_SERVICE_PREDICATES_PATH:/approval-service/ask-for-approve}
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: fault-service
+                fallbackUri: forward:/fallback/approval-service
+
+
+        - id: company-service
+          uri: ${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_INSTANCE_SERVICE_URI:lb://company-service}
+          predicates:
+            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_COURSE_INSTANCE_SERVICE_PREDICATES_PATH:/company-service/**}
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: fault-service
+                fallbackUri: forward:/fallback/company-service
+
+
+        - id: auth-service
+          uri: ${SPRING_CLOUD_GATEWAY_ROUTES_AUTH_SERVICE_URI:lb://auth-service}
+          predicates:
+            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_AUTH_SERVICE_PREDICATES_PATH:/auth-service/**}
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: fault-service
+                fallbackUri: forward:/fallback/auth-service
+
+
+        - id: expense-service
+          uri: ${SPRING_CLOUD_GATEWAY_ROUTES_USER_SERVICE_URI:lb://expense-service}
+          predicates:
+            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_USER_SERVICE_PREDICATES_PATH:/expense-service/**}
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: fault-service
+                fallbackUri: forward:/fallback/expense-service
+
+
+        - id: notification-service
+          uri: ${SPRING_CLOUD_GATEWAY_ROUTES_USER_SERVICE_URI:lb://notification-service}
+          predicates:
+            - Path=${SPRING_CLOUD_GATEWAY_ROUTES_USER_SERVICE_PREDICATES_PATH:/notification-service/**}
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: fault-service
+                fallbackUri: forward:/fallback/notification-service
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:*}
+        exclude: shutdown     # Exclude shutdown (security best practice)
+
+  health:
+    circuitbreakers:
+      enabled: ${MANAGEMENT_HEALTH_CIRCUITBREAKERS_ENABLED:true}
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:ALWAYS}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      fault-service:
+        registerHealthIndicator: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_REGISTERHEALTHINDICATOR:true}
+        failureRateThreshold: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_FAILURERATETHRESHOLD:50}
+        minimumNumberOfCalls: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_MINIMUMNUMBEROFCALLS:5}
+        slidingWindowSize: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_SLIDINGWINDOWSIZE:10}
+        waitDurationInOpenState: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_WAITDURATIONINOPENSTATE:10000}
+        permittedNumberOfCallsInHalfOpenState: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_PERMITTEDNUMBEROFCALLSINHALFOPENSTATE:3}
+        automaticTransitionFromOpenToHalfOpenEnabled: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_AUTOMATICTRANSITIONFROMOPENTOHALFOPENENABLED:true}
+        slidingWindowType: ${RESILIENCE4J_CIRCUITBREAKER_INSTANCES_FAULT_SERVICE_SLIDINGWINDOWTYPE:COUNT_BASED}
+
+  timelimiter:
+    instances:
+      fault-service:
+        timeoutDuration: ${RESILIENCE4J_TIMELIMITER_INSTANCES_FAULT_SERVICE_TIMEOUTDURATION:20s}
+
+
+#
+
+eureka:
+  client:
+    register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+    fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: ${EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS:30}
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}  # Add the hostname property here
+    prefer-ip-address: ${EUREKA_INSTANCE_PREFER_IP_ADDRESS:true}
+    lease-renewal-interval-in-seconds: ${EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS:10}
+    lease-expiration-duration-in-seconds: ${EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS:90}
+
+
+# Security Configuration for Actuator Endpoints
+# Logging Configuration
+logging:
+  level:
+    org.springframework.boot.actuate.health: INFO  # Log health check details for troubleshooting
