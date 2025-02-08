@@ -92,7 +92,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
         // Rest Call to Auth-Service to get details ?
         // Rest call to auth-service to get user details by email
-        String authUrlToGetUser = "http://localhost:8081/auth-service/get-user/" + emailId;
+        String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + emailId;
 //        UserResponse userResponse = null;
 //        String approverName = null;
 
