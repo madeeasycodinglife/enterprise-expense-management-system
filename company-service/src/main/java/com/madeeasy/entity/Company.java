@@ -25,4 +25,7 @@ public class Company {
 
     @Column(unique = true, nullable = false)
     private String domain;
+
+    @Column(nullable = false)
+    private Double autoApproveThreshold;
 }

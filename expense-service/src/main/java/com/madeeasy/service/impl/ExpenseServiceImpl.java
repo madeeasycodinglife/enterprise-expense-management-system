@@ -132,7 +132,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             }
 
             // Define the threshold for auto-approval
-            BigDecimal approvalThreshold = new BigDecimal("5000"); // Example: Auto-approve if <= 5000
+//            BigDecimal approvalThreshold = new BigDecimal("5000"); // Example: Auto-approve if <= 5000
 
             // Create an Expense entity and set required fields
             Expense expense = new Expense();
@@ -144,7 +144,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             expense.setCategory(expenseRequestDTO.getCategory());
             expense.setExpenseDate(expenseRequestDTO.getExpenseDate());
 
-            if (expenseRequestDTO.getAmount().compareTo(approvalThreshold) <= 0) {
+            if (expenseRequestDTO.getAmount().compareTo(BigDecimal.valueOf(companyResponse.getAutoApproveThreshold())) <= 0) {
                 // Auto-approve expense
                 expense.setStatus(ExpenseStatus.APPROVED);
                 // Save the expense to the database

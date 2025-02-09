@@ -29,12 +29,15 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = new Company();
         company.setName(companyRequestDTO.getName());
         company.setDomain(companyRequestDTO.getDomain());
-
+        company.setAutoApproveThreshold(companyRequestDTO.getAutoApproveThreshold());
+        log.info("before saving : {}", company);
         Company savedCompany = this.companyRepository.save(company);
+        log.info("after saving : {}", savedCompany);
         return CompanyResponseDTO.builder()
                 .id(savedCompany.getId())
                 .name(savedCompany.getName())
                 .domain(savedCompany.getDomain())
+                .autoApproveThreshold(savedCompany.getAutoApproveThreshold())
                 .build();
     }
 
@@ -46,6 +49,7 @@ public class CompanyServiceImpl implements CompanyService {
                 .id(foundCompany.getId())
                 .name(foundCompany.getName())
                 .domain(foundCompany.getDomain())
+                .autoApproveThreshold(foundCompany.getAutoApproveThreshold())
                 .build();
     }
 }

@@ -10,8 +10,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
         name = "Company Management",
         description = "API for managing company data, including registering a new company and retrieving company details by domain."
 )
+@Validated
 public class CompanyController {
 
     private final CompanyService companyService;
@@ -38,7 +41,7 @@ public class CompanyController {
     })
     @PostMapping(path = "/register")
     public ResponseEntity<CompanyResponseDTO> registerCompany(
-            @RequestBody CompanyRequestDTO request) {
+           @Valid @RequestBody CompanyRequestDTO request) {
         CompanyResponseDTO company = companyService.registerCompany(request);
         return ResponseEntity.ok(company);
     }
