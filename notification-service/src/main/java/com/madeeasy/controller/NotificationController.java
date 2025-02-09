@@ -2,12 +2,16 @@ package com.madeeasy.controller;
 
 import com.madeeasy.request.ApprovalRequestDTO;
 import com.madeeasy.service.NotificationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -15,17 +19,29 @@ import java.nio.charset.StandardCharsets;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(path = "/notification-service")
+@Tag(
+        name = "Notification Service",
+        description = "API for sending notifications related to expense approval requests, including approve and reject links."
+)
 public class NotificationController {
 
     private final NotificationService notificationService;
 
-    // Endpoint to receive the request body (including expense details, approve/reject links)
+    @Operation(
+            summary = "Send Approval Notification",
+            description = "Receives an expense approval request and sends an email notification with approve/reject links.",
+            security = @SecurityRequirement(name = "Bearer Authentication"),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Notification sent successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid request format", content = @Content),
+                    @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
+            }
+    )
     @PostMapping(path = "/")
-    public ResponseEntity<?> approveExpenseTest(@RequestBody ApprovalRequestDTO approvalRequestDTO) {
-        // Extract the expense details (the full string or as individual fields)
+    public ResponseEntity<?> approveExpenseTest(@Valid @RequestBody ApprovalRequestDTO approvalRequestDTO) {
         String expenseDetails = approvalRequestDTO.getExpenseDetails();
 
-        // Optionally: Parse the expenseDetails into individual fields if necessary
+        // Extract expense details
         String[] details = expenseDetails.split("&");
         Long expenseId = null;
         String title = null;
@@ -35,46 +51,35 @@ public class NotificationController {
         String expenseDate = null;
         String emailId = null;
 
-        // Loop through and parse individual fields from the expenseDetails
         for (String detail : details) {
             if (detail.contains("expenseId")) {
                 expenseId = Long.parseLong(detail.split("=")[1]);
             }
             if (detail.contains("title")) {
-                title = detail.split("=")[1];
-                title = java.net.URLDecoder.decode(title, StandardCharsets.UTF_8); // Decode the title
+                title = java.net.URLDecoder.decode(detail.split("=")[1], StandardCharsets.UTF_8);
             }
             if (detail.contains("description")) {
-                description = detail.split("=")[1];
-                description = java.net.URLDecoder.decode(description, StandardCharsets.UTF_8); // Decode the description
+                description = java.net.URLDecoder.decode(detail.split("=")[1], StandardCharsets.UTF_8);
             }
             if (detail.contains("amount")) {
                 amount = new BigDecimal(detail.split("=")[1]);
             }
             if (detail.contains("category")) {
-                category = detail.split("=")[1];
-                category = java.net.URLDecoder.decode(category, StandardCharsets.UTF_8); // Decode the category
+                category = java.net.URLDecoder.decode(detail.split("=")[1], StandardCharsets.UTF_8);
             }
             if (detail.contains("expenseDate")) {
-                expenseDate = detail.split("=")[1];
-                expenseDate = java.net.URLDecoder.decode(expenseDate, StandardCharsets.UTF_8); // Decode the expenseDate
+                expenseDate = java.net.URLDecoder.decode(detail.split("=")[1], StandardCharsets.UTF_8);
             }
             if (detail.contains("emailId")) {
-                emailId = detail.split("=")[1];
-                emailId = java.net.URLDecoder.decode(emailId, StandardCharsets.UTF_8); // Decode the emailId
+                emailId = java.net.URLDecoder.decode(detail.split("=")[1], StandardCharsets.UTF_8);
             }
         }
 
-        // Log the decoded expense details
-        System.out.println("Expense details: " + expenseId + ", " + title + ", " + description + ", " + amount + ", " + category + ", " + expenseDate + ", " + emailId);
-
-        // Process the approval/rejection links
+        // Extract approval and rejection links
         String approveLink = approvalRequestDTO.getApproveLink();
         String rejectLink = approvalRequestDTO.getRejectLink();
 
-        System.out.println("approvalLink: " + approveLink + ", rejectLink: " + rejectLink);
-
-        // Call the service to send the approval/rejection email or notification
+        // Call service to send email notification
         notificationService.sendApprovalNotification(expenseId, title, description, amount, category, expenseDate, emailId, approveLink, rejectLink);
 
         return ResponseEntity.ok().build();
