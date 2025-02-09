@@ -7,6 +7,10 @@ import io.swagger.v3.oas.annotations.info.License;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.context.annotation.Bean;
+import org.springframework.lang.NonNull;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @OpenAPIDefinition(
         info = @Info(
@@ -31,5 +35,19 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 public class CompanyServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(CompanyServiceApplication.class, args);
+    }
+
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(@NonNull CorsRegistry registry) {
+                registry.addMapping("/**") // Apply to all endpoints
+                        .allowedOrigins("http://localhost:5173", "http://localhost:8080") // Allowed origins
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH") // Allowed HTTP methods
+                        .allowedHeaders("*") // Allowed headers
+                        .allowCredentials(true); // Allow cookies and authorization headers
+            }
+        };
     }
 }
