@@ -189,6 +189,7 @@ public class AuthServiceImpl implements AuthService {
             return AuthResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
+                    .status(HttpStatus.CREATED)
                     .build();
         }
 

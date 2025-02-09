@@ -7,6 +7,14 @@ import com.madeeasy.dto.request.UserRequest;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.service.AuthService;
 import com.madeeasy.util.ValidationUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,85 +30,169 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping(path = "/sign-up")
-    public ResponseEntity<?> singUp(@Valid @RequestBody AuthRequest authRequest) {
-        AuthResponse authResponse = authService.singUp(authRequest);
-        // Return the appropriate HTTP status based on the response status in AuthResponse
-        if (authResponse.getStatus() == HttpStatus.CONFLICT) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(authResponse);
-        } else if (authResponse.getStatus() == HttpStatus.BAD_REQUEST) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(authResponse);
-        } else if (authResponse.getStatus() == HttpStatus.SERVICE_UNAVAILABLE) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(authResponse);
-        }
-        return ResponseEntity.ok().body(authResponse);
+    @Tag(
+            name = "Authentication",
+            description = "Handles user authentication-related operations such as registration, login, logout, token validation, and token refresh. These endpoints enable secure access to the system by authenticating users with their credentials and managing their session tokens."
+    )
+    @Operation(
+            summary = "User Registration",
+            description = "Register a new user with email, password, and role.",
+            tags = {"Authentication"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User successfully registered"),
+            @ApiResponse(responseCode = "409", description = "User already exists", content = @Content(schema = @Schema(implementation = String.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = String.class)))
+    })
+    @PostMapping("/sign-up")
+    public ResponseEntity<AuthResponse> signUp(@Valid @RequestBody AuthRequest authRequest) {
+        AuthResponse response = authService.singUp(authRequest);
+        return ResponseEntity.status(response.getStatus()).body(response);
     }
 
-
-    @PostMapping(path = "/sign-in")
-    public ResponseEntity<?> singIn(@Valid @RequestBody SignInRequestDTO signInRequestDTO) {
-        AuthResponse authResponse = this.authService.singIn(signInRequestDTO);
-        return ResponseEntity.ok().body(authResponse);
+    @Tag(
+            name = "Authentication",
+            description = "Handles user authentication-related operations such as registration, login, logout, token validation, and token refresh. These endpoints enable secure access to the system by authenticating users with their credentials and managing their session tokens."
+    )
+    @Operation(
+            summary = "User Login",
+            description = "Authenticate user with email and password.",
+            tags = {"Authentication"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User authenticated successfully"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
+    @PostMapping("/sign-in")
+    public ResponseEntity<AuthResponse> signIn(@Valid @RequestBody SignInRequestDTO request) {
+        return ResponseEntity.ok(authService.singIn(request));
     }
 
-    @PostMapping(path = "/log-out")
-    public ResponseEntity<?> logOut(@Valid @RequestBody LogOutRequest logOutRequest) {
-        this.authService.logOut(logOutRequest);
-        return ResponseEntity.ok().body("Logged out");
+    @Tag(
+            name = "Authentication",
+            description = "Handles user authentication-related operations such as registration, login, logout, token validation, and token refresh. These endpoints enable secure access to the system by authenticating users with their credentials and managing their session tokens."
+    )
+    @Operation(
+            summary = "User Logout",
+            description = "Logs out the currently authenticated user.",
+            tags = {"Authentication"}
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Successfully logged out")
+    })
+    @PostMapping("/log-out")
+    public ResponseEntity<String> logOut(@Valid @RequestBody LogOutRequest logOutRequest) {
+        authService.logOut(logOutRequest);
+        return ResponseEntity.ok("Logged out successfully");
     }
 
-    @PostMapping(path = "/refresh-token/{refreshToken}")
-    public ResponseEntity<?> refreshToken(@PathVariable("refreshToken") String refreshToken) {
-        Map<String, String> validatedRefreshToken = ValidationUtils.validateRefreshToken(refreshToken);
-        if (!validatedRefreshToken.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedRefreshToken);
+    @Tag(
+            name = "Authentication",
+            description = "Handles user authentication-related operations such as registration, login, logout, token validation, and token refresh. These endpoints enable secure access to the system by authenticating users with their credentials and managing their session tokens."
+    )
+    @Operation(
+            summary = "Refresh Access Token",
+            description = "Refreshes the user's access token using a valid refresh token.",
+            tags = {"Authentication"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token refreshed successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid refresh token")
+    })
+    @PostMapping("/refresh-token/{refreshToken}")
+    public ResponseEntity<?> refreshToken(@PathVariable String refreshToken) {
+        Map<String, String> validationErrors = ValidationUtils.validateRefreshToken(refreshToken);
+        if (!validationErrors.isEmpty()) {
+            return ResponseEntity.badRequest().body(validationErrors);
         }
-        AuthResponse authResponse = this.authService.refreshToken(refreshToken);
-        return ResponseEntity.ok().body(authResponse);
+        return ResponseEntity.ok(authService.refreshToken(refreshToken));
     }
 
-    @PostMapping(path = "/validate-access-token/{accessToken}")
-    public ResponseEntity<?> validateAccessToken(@PathVariable("accessToken") String accessToken) {
-        Map<String, String> validatedAccessToken = ValidationUtils.validateAccessToken(accessToken);
-        if (!validatedAccessToken.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedAccessToken);
+    @Tag(
+            name = "Authentication",
+            description = "Handles user authentication-related operations such as registration, login, logout, token validation, and token refresh. These endpoints enable secure access to the system by authenticating users with their credentials and managing their session tokens."
+    )
+    @Operation(
+            summary = "Validate Access Token",
+            description = "Checks if the given access token is valid.",
+            tags = {"Authentication"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token is valid"),
+            @ApiResponse(responseCode = "401", description = "Token is invalid or expired")
+    })
+    @PostMapping("/validate-access-token/{accessToken}")
+    public ResponseEntity<Boolean> validateAccessToken(@PathVariable String accessToken) {
+        Map<String, String> validationErrors = ValidationUtils.validateAccessToken(accessToken);
+        if (!validationErrors.isEmpty()) {
+            return ResponseEntity.badRequest().body(false);
         }
-        boolean flag = this.authService.validateAccessToken(accessToken);
-        if (flag) {
-            return ResponseEntity.ok().body(true);
-        }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(false);
+        return authService.validateAccessToken(accessToken)
+                ? ResponseEntity.ok(true)
+                : ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(false);
     }
 
-    @PatchMapping(path = "/partial-update/{emailId}")
-    public ResponseEntity<?> partiallyUpdateUser(@PathVariable("emailId") String emailId,
-                                                 @Valid @RequestBody UserRequest userRequest) {
-        Map<String, String> validatedEmail = ValidationUtils.validateEmail(emailId);
-        if (!validatedEmail.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedEmail);
+    @Tag(
+            name = "User Management",
+            description = "Manages user-related operations such as fetching user details, updating profiles, and retrieving users based on company and role. These endpoints allow administrators to handle user profiles, including partial updates and retrieval of users for a specific company or role."
+    )
+    @Operation(
+            summary = "Update User Profile",
+            description = "Partially updates the user profile based on email ID.",
+            tags = {"User Management"}
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PatchMapping("/partial-update/{emailId}")
+    public ResponseEntity<AuthResponse> updateUserProfile(
+            @Parameter(description = "User's email ID", required = true)
+            @PathVariable String emailId,
+            @Valid @RequestBody UserRequest userRequest) {
+
+        Map<String, String> validationErrors = ValidationUtils.validateEmail(emailId);
+        if (!validationErrors.isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
         }
-        AuthResponse authResponse = this.authService.partiallyUpdateUser(emailId, userRequest);
-        if (authResponse.getStatus() == HttpStatus.CONFLICT) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(authResponse);
-        } else if (authResponse.getStatus() == HttpStatus.BAD_REQUEST) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(authResponse);
-        }
-        return ResponseEntity.ok().body(authResponse);
+
+        AuthResponse response = authService.partiallyUpdateUser(emailId, userRequest);
+        return ResponseEntity.status(response.getStatus()).body(response);
     }
 
-    @GetMapping(path = "/get-user/{emailId}")
-    public ResponseEntity<?> getUser(@PathVariable("emailId") String emailId) {
-        Map<String, String> validatedEmail = ValidationUtils.validateEmail(emailId);
-        if (!validatedEmail.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validatedEmail);
+    @Tag(
+            name = "User Management",
+            description = "Manages user-related operations such as fetching user details, updating profiles, and retrieving users based on company and role. These endpoints allow administrators to handle user profiles, including partial updates and retrieval of users for a specific company or role."
+    )
+    @Operation(
+            summary = "Get User Details",
+            description = "Fetch user details by email ID.",
+            tags = {"User Management"}
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @GetMapping("/get-user/{emailId}")
+    public ResponseEntity<?> getUser(@PathVariable String emailId) {
+        Map<String, String> validationErrors = ValidationUtils.validateEmail(emailId);
+        if (!validationErrors.isEmpty()) {
+            return ResponseEntity.badRequest().body(validationErrors);
         }
-        return ResponseEntity.ok().body(this.authService.getUserDetailsByEmailId(emailId));
+        return ResponseEntity.ok(authService.getUserDetailsByEmailId(emailId));
     }
 
-    // get-user by company domain
-    @GetMapping(path = "/get-user/{companyDomain}/{role}")
-    public ResponseEntity<?> getUserByCompanyDomain(@PathVariable("companyDomain") String companyDomain,
-                                                    @PathVariable("role") String role) {
-        return ResponseEntity.ok().body(this.authService.getUserDetailsByCompanyDomainAndRole(companyDomain, role.toUpperCase()));
+    @Tag(
+            name = "User Management",
+            description = "Manages user-related operations such as fetching user details, updating profiles, and retrieving users based on company and role. These endpoints allow administrators to handle user profiles, including partial updates and retrieval of users for a specific company or role."
+    )
+    @Operation(
+            summary = "Get Users by Company and Role",
+            description = "Fetch users based on company domain and role.",
+            tags = {"User Management"}
+    )
+    @SecurityRequirement(name = "Bearer Authentication")
+    @GetMapping("/get-user/{companyDomain}/{role}")
+    public ResponseEntity<?> getUsersByCompanyAndRole(
+            @Parameter(description = "Company domain", required = true)
+            @PathVariable String companyDomain,
+            @Parameter(description = "User role", required = true)
+            @PathVariable String role) {
+        return ResponseEntity.ok(authService.getUserDetailsByCompanyDomainAndRole(companyDomain, role.toUpperCase()));
     }
 }
