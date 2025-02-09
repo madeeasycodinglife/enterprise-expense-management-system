@@ -24,7 +24,7 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public CompanyResponseDTO registerCompany(CompanyRequestDTO companyRequestDTO) {
         if (companyRepository.findByDomain(companyRequestDTO.getDomain()).isPresent()) {
-            throw new RuntimeException("Company already exists");
+            throw new ClientException("Company already exists",HttpStatus.CONFLICT);
         }
         Company company = new Company();
         company.setName(companyRequestDTO.getName());
