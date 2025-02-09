@@ -330,11 +330,12 @@ public class NotificationServiceImpl implements NotificationService {
         helper.setSubject(subject);
         helper.setText(content, true); // true -> send as HTML
 
+        log.info("to : {} , subject : {}, text : {}", to, subject, content);
         try {
             mailSender.send(message);
+            log.info("Approval email sent to {}", to);
         } catch (MailException e) {
             log.error("Error : {}", e.getCause());
         }
-        log.info("Approval email sent to {}", to);
     }
 }
