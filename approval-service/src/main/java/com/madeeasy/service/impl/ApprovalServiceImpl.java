@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.UnsupportedEncodingException;
@@ -311,7 +312,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             if (httpStatus == HttpStatus.NOT_FOUND) {
                 log.error("User not found: {}", message);
                 // Here we throw a ClientException with 404 status
-                throw new ClientException(message, httpStatus);
+                throw new ClientException("Manager has not been created.  Please check before Proceeding", httpStatus);
             } else if (httpStatus == HttpStatus.UNAUTHORIZED) {
                 log.error("Authorization failed: {}", message);
                 // Handle unauthorized error as you did earlier
@@ -438,20 +439,92 @@ public class ApprovalServiceImpl implements ApprovalService {
             this.approvalRepository.save(currentApproval);
             // rest call with authorization herader to get user details by company domain and role
             String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "FINANCE";
-            List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
-                    new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
-                    }).getBody();
-            // Check if the response is null or empty
-            if (userResponseList == null || userResponseList.isEmpty()) {
-                throw new IllegalStateException("Unable to fetch user information.");
+            String financeEmail = null;  // Access the email property of the first user
+            try {
+                List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
+                        new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
+                        }).getBody();
+                // Check if the response is null or empty
+                if (userResponseList == null || userResponseList.isEmpty()) {
+                    throw new IllegalStateException("Unable to fetch user information.");
+                }
+
+                // Assuming the list contains only one user for the given role, get the first user
+                UserResponse userResponse = userResponseList.getFirst();  // Get the first element from the list
+                financeEmail = userResponse.getEmail();
+            } catch (HttpClientErrorException.Unauthorized e) {
+                log.error("Authorization failed: {}", e.getResponseBodyAsString());
+
+                // Get the response body (JSON) from the exception
+                String responseBody = e.getResponseBodyAsString();
+
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
+                }
+
+                if (jsonNode != null) {
+                    String message = jsonNode.get("message").asText();
+                    String status = jsonNode.get("status").asText();
+
+                    HttpStatus httpStatus;
+                    try {
+                        httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+                    } catch (IllegalArgumentException e2) {
+                        log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+                        httpStatus = HttpStatus.UNAUTHORIZED;
+                    }
+
+                    log.error("Parsed message: {}", message);
+                    log.error("Parsed status: {}", status);
+
+                    // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    log.error("Failed to parse JSON response body.");
+                    throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            } catch (HttpClientErrorException e) {
+                log.error("HTTP error occurred: {}", e.getResponseBodyAsString());
+
+                // Get the response body (JSON) from the exception
+                String responseBody = e.getResponseBodyAsString();
+
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
+                }
+
+                // Extract message and status
+                String message = jsonNode.get("message").asText();
+                String status = jsonNode.get("status").asText();
+
+                // Check the status to decide whether it's 401 or 404, etc.
+                HttpStatus httpStatus = HttpStatus.valueOf(status); // Convert the status string to HttpStatus
+
+                // Handle 404 NOT_FOUND specifically
+                if (httpStatus == HttpStatus.NOT_FOUND) {
+                    log.error("User not found: {}", message);
+                    // Here we throw a ClientException with 404 status
+                    throw new ClientException("Finance has not been created , Please check before Proceeding", httpStatus);
+                } else if (httpStatus == HttpStatus.UNAUTHORIZED) {
+                    log.error("Authorization failed: {}", message);
+                    // Handle unauthorized error as you did earlier
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    // If it's another error, we might still want to use a ResourceException
+                    throw new ResourceException("An error occurred while accessing auth-service.");
+                }
             }
 
-            // Assuming the list contains only one user for the given role, get the first user
-            UserResponse userResponse = userResponseList.getFirst();  // Get the first element from the list
-            String financeEmail = userResponse.getEmail();  // Access the email property of the first user
-
-            // Approve and send to Finance
-            System.out.println("Manager role trying to send another notifcation to finance");
             // Save the approval request in the database (Approval table)
             Approval finaceApproval = Approval.builder()
                     .expenseId(currentApproval.getExpenseId())
@@ -467,17 +540,91 @@ public class ApprovalServiceImpl implements ApprovalService {
             this.approvalRepository.save(currentApproval);
             // rest call with authorization herader to get user details by company domain and role
             String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "ADMIN";
-            List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
-                    new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
-                    }).getBody();
-            // Check if the response is null or empty
-            if (userResponseList == null || userResponseList.isEmpty()) {
-                throw new IllegalStateException("Unable to fetch user information.");
-            }
+            String adminEmail = null;  // Access the email property of the first user
+            try {
+                List<UserResponse> userResponseList = restTemplate.exchange(authUrlToGetUser, HttpMethod.GET,
+                        new HttpEntity<>(createHeaders(accessToken)), new ParameterizedTypeReference<List<UserResponse>>() {
+                        }).getBody();
+                // Check if the response is null or empty
+                if (userResponseList == null || userResponseList.isEmpty()) {
+                    throw new IllegalStateException("Unable to fetch user information.");
+                }
 
-            // Assuming the list contains only one user for the given role, get the first user
-            UserResponse userResponse = userResponseList.getFirst();  // Get the first element from the list
-            String adminEmail = userResponse.getEmail();  // Access the email property of the first user
+                // Assuming the list contains only one user for the given role, get the first user
+                UserResponse userResponse = userResponseList.getFirst();  // Get the first element from the list
+                adminEmail = userResponse.getEmail();
+            } catch (HttpClientErrorException.Unauthorized e) {
+                log.error("Authorization failed: {}", e.getResponseBodyAsString());
+
+                // Get the response body (JSON) from the exception
+                String responseBody = e.getResponseBodyAsString();
+
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
+                }
+
+                if (jsonNode != null) {
+                    String message = jsonNode.get("message").asText();
+                    String status = jsonNode.get("status").asText();
+
+                    HttpStatus httpStatus;
+                    try {
+                        httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+                    } catch (IllegalArgumentException e2) {
+                        log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+                        httpStatus = HttpStatus.UNAUTHORIZED;
+                    }
+
+                    log.error("Parsed message: {}", message);
+                    log.error("Parsed status: {}", status);
+
+                    // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    log.error("Failed to parse JSON response body.");
+                    throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            } catch (HttpClientErrorException e) {
+                log.error("HTTP error occurred: {}", e.getResponseBodyAsString());
+
+                // Get the response body (JSON) from the exception
+                String responseBody = e.getResponseBodyAsString();
+
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
+                }
+
+                // Extract message and status
+                String message = jsonNode.get("message").asText();
+                String status = jsonNode.get("status").asText();
+
+                // Check the status to decide whether it's 401 or 404, etc.
+                HttpStatus httpStatus = HttpStatus.valueOf(status); // Convert the status string to HttpStatus
+
+                // Handle 404 NOT_FOUND specifically
+                if (httpStatus == HttpStatus.NOT_FOUND) {
+                    log.error("User not found: {}", message);
+                    // Here we throw a ClientException with 404 status
+                    throw new ClientException("Admin has not been created.  Please check before Proceeding", httpStatus);
+                } else if (httpStatus == HttpStatus.UNAUTHORIZED) {
+                    log.error("Authorization failed: {}", message);
+                    // Handle unauthorized error as you did earlier
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    // If it's another error, we might still want to use a ResourceException
+                    throw new ResourceException("An error occurred while accessing auth-service.");
+                }
+            }
             // Save the approval request in the database (Approval table)
             Approval finaceApproval = Approval.builder()
                     .expenseId(currentApproval.getExpenseId())
