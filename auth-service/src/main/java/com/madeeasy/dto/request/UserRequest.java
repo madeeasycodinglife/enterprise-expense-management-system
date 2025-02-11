@@ -2,6 +2,7 @@ package com.madeeasy.dto.request;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Builder;
 import lombok.Data;
@@ -26,7 +27,8 @@ public class UserRequest {
     @Pattern(regexp = "^[+]?[0-9]{10,13}$", message = "phone must be a valid phone number with 10 to 13 digits")
     @Nullable
     private String phone;
-
+    @NotBlank(message = "Company Domain is Required.")
+    private String companyDomain;
     @Nullable
     private String role;
 }

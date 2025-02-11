@@ -55,8 +55,6 @@ public class AuthServiceImpl implements AuthService {
     private final RestTemplate restTemplate;
 
     @Override
-//    @Retry(name = "companyServiceRetry", fallbackMethod = "companyServiceFallback")
-    @CircuitBreaker(name = "companyServiceCircuitBreaker", fallbackMethod = "companyServiceFallback")
     public AuthResponse singUp(AuthRequest authRequest) {
         String normalizedRole = authRequest.getRole().toUpperCase();
 
@@ -71,164 +69,58 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         }
 
-        // Rest Call To Company Service to check if Company exists or Not
-        String url = "http://company-service/company-service/domain-name/" + authRequest.getCompanyDomain();
-        boolean isCompanyExists = false;
+        User user = User.builder()
+                .fullName(authRequest.getFullName())
+                .email(authRequest.getEmail())
+                .password(passwordEncoder.encode(authRequest.getPassword()))
+                .phone(authRequest.getPhone())
+                .isAccountNonExpired(true)
+                .isAccountNonLocked(true)
+                .isCredentialsNonExpired(true)
+                .isEnabled(true)
+                .role(Role.valueOf(normalizedRole))
+                .build();
 
-        System.out.println("Company Service is being called.....");
-        ResponseEntity<Company> responseEntity = null;
+        boolean emailExists = userRepository.existsByEmail(authRequest.getEmail());
+        boolean phoneExists = userRepository.existsByPhone(authRequest.getPhone());
 
-        try {
-            // Perform the HTTP GET request and map the response to Company
-            responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Company.class);
-            System.out.println("Company Service has been called.....");
-
-            if (responseEntity.getStatusCode().is2xxSuccessful()) {
-                Company company = responseEntity.getBody();
-                if (company != null) {
-                    isCompanyExists = true;
-                } else {
-                    System.out.println("No company data found.");
-                }
-            } else {
-                // Handle non-2xx HTTP status codes
-                System.out.println("Failed to fetch company data. HTTP status: " + responseEntity.getStatusCode());
-                handleNon2xxStatus((HttpStatus) responseEntity.getStatusCode());
-            }
-        } catch (HttpClientErrorException | HttpServerErrorException e) {
-            // Get the response body (JSON) from the exception
-            String responseBody = e.getResponseBodyAsString();
-
-            // Parse the response body (which is a JSON string)
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = null;
-            try {
-                jsonNode = objectMapper.readTree(responseBody);
-            } catch (JsonProcessingException ex) {
-                log.error("Failed to parse response body: {}", ex.getMessage());
-            }
-
-            if (jsonNode != null) {
-                String message = jsonNode.get("message").asText();
-                String status = jsonNode.get("status").asText().substring(0, 3);
-
-                HttpStatus httpStatus = null;
-                try {
-                    // Check if the extracted status is numeric, then convert it to HttpStatus
-                    if (status.matches("\\d{3}")) {
-                        int statusCode = Integer.parseInt(status);  // Convert to integer
-                        httpStatus = HttpStatus.resolve(statusCode);  // Get HttpStatus from status code
-                    } else {
-                        httpStatus = HttpStatus.valueOf(status);  // If it's a name like "NOT_FOUND"
-                    }
-                } catch (IllegalArgumentException e2) {
-                    log.error("Invalid status '{}' found", status);
-                }
-
-                log.error("Parsed message: {}", message);
-                log.error("Parsed status: {}", status);
-                log.error(message, httpStatus);
-
-                // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
-                throw new ClientException(message, httpStatus);
-            } else {
-                log.error("Failed to parse JSON response body.");
-                throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-        }
-
-        if (isCompanyExists) {
-            User user = User.builder()
-                    .fullName(authRequest.getFullName())
-                    .email(authRequest.getEmail())
-                    .password(passwordEncoder.encode(authRequest.getPassword()))
-                    .companyDomain(authRequest.getCompanyDomain())
-                    .phone(authRequest.getPhone())
-                    .isAccountNonExpired(true)
-                    .isAccountNonLocked(true)
-                    .isCredentialsNonExpired(true)
-                    .isEnabled(true)
-                    .role(Role.valueOf(normalizedRole))
-                    .build();
-
-            boolean emailExists = userRepository.existsByEmail(authRequest.getEmail());
-            boolean phoneExists = userRepository.existsByPhone(authRequest.getPhone());
-
-            if (emailExists && phoneExists) {
-                return AuthResponse.builder()
-                        .message("User with Email: " + authRequest.getEmail() + " and Phone: " + authRequest.getPhone() + " already exists.")
-                        .status(HttpStatus.CONFLICT)
-                        .build();
-            } else if (emailExists) {
-                return AuthResponse.builder()
-                        .message("User with Email: " + authRequest.getEmail() + " already exists.")
-                        .status(HttpStatus.CONFLICT)
-                        .build();
-            } else if (phoneExists) {
-                return AuthResponse.builder()
-                        .message("User with Phone: " + authRequest.getPhone() + " already exists.")
-                        .status(HttpStatus.CONFLICT)
-                        .build();
-            }
-
-            String accessToken = jwtUtils.generateAccessTokenWithCompanyDomain(user.getEmail(), normalizedRole, authRequest.getCompanyDomain());
-            String refreshToken = jwtUtils.generateRefreshTokenWithCompanyDomain(user.getEmail(), normalizedRole, authRequest.getCompanyDomain());
-
-            Token token = Token.builder()
-                    .id(UUID.randomUUID().toString())
-                    .user(user)
-                    .token(accessToken)
-                    .isRevoked(false)
-                    .isExpired(false)
-                    .tokenType(TokenType.BEARER)
-                    .build();
-
-            userRepository.save(user);
-            tokenRepository.save(token);
-
+        if (emailExists && phoneExists) {
             return AuthResponse.builder()
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
-                    .status(HttpStatus.CREATED)
+                    .message("User with Email: " + authRequest.getEmail() + " and Phone: " + authRequest.getPhone() + " already exists.")
+                    .status(HttpStatus.CONFLICT)
+                    .build();
+        } else if (emailExists) {
+            return AuthResponse.builder()
+                    .message("User with Email: " + authRequest.getEmail() + " already exists.")
+                    .status(HttpStatus.CONFLICT)
+                    .build();
+        } else if (phoneExists) {
+            return AuthResponse.builder()
+                    .message("User with Phone: " + authRequest.getPhone() + " already exists.")
+                    .status(HttpStatus.CONFLICT)
                     .build();
         }
+
+        String accessToken = jwtUtils.generateAccessToken(user.getEmail(), normalizedRole);
+        String refreshToken = jwtUtils.generateRefreshToken(user.getEmail(), normalizedRole);
+
+        Token token = Token.builder()
+                .id(UUID.randomUUID().toString())
+                .user(user)
+                .token(accessToken)
+                .isRevoked(false)
+                .isExpired(false)
+                .tokenType(TokenType.BEARER)
+                .build();
+
+        userRepository.save(user);
+        tokenRepository.save(token);
 
         return AuthResponse.builder()
-                .message("Company with domain name: " + authRequest.getCompanyDomain() + " does not exist.")
-                .status(HttpStatus.NOT_FOUND)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .status(HttpStatus.CREATED)
                 .build();
-    }
-
-    // Fallback method for when the company service call fails
-    private AuthResponse companyServiceFallback(AuthRequest authRequest, Throwable throwable) {
-        // If the cause of the failure is a ClientException, rethrow it
-        if (throwable instanceof ClientException) {
-            throw (ClientException) throwable;  // Propagate the original ClientException
-        }
-        return AuthResponse.builder()
-                .message("Company service is unavailable at the moment. Please try again later.")
-                .status(HttpStatus.SERVICE_UNAVAILABLE)
-                .build();
-    }
-
-    // Handle non-2xx HTTP status codes
-    private AuthResponse handleNon2xxStatus(HttpStatus status) {
-        if (status.is4xxClientError()) {
-            return AuthResponse.builder()
-                    .message("Client error occurred: " + status.getReasonPhrase())
-                    .status(status)
-                    .build();
-        } else if (status.is5xxServerError()) {
-            return AuthResponse.builder()
-                    .message("Server error occurred: " + status.getReasonPhrase())
-                    .status(status)
-                    .build();
-        } else {
-            return AuthResponse.builder()
-                    .message("Unexpected error occurred: " + status.getReasonPhrase())
-                    .status(status)
-                    .build();
-        }
     }
 
 
@@ -340,13 +232,20 @@ public class AuthServiceImpl implements AuthService {
         return true;
     }
 
+
+    @CircuitBreaker(name = "companyServiceCircuitBreaker", fallbackMethod = "companyServiceFallback")
     public AuthResponse partiallyUpdateUser(String emailId, UserRequest userRequest) {
 
         log.info("UserRequest : {}", userRequest);
+        // Check if an ADMIN user already exists with the same companyDomain
+        userRepository.findByCompanyDomainAndAdminRole(userRequest.getCompanyDomain(), Role.ADMIN)
+                .ifPresent(existingAdmin -> {
+                    throw new ClientException("An ADMIN user already exists with the same company domain.", HttpStatus.CONFLICT);
+                });
 
         User user = userRepository.findByEmail(emailId).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
 
-        if (userRequest.getFullName() != null) {
+        if (userRequest.getFullName() != null && !userRequest.getFullName().isBlank()) {
             user.setFullName(userRequest.getFullName());
         }
 
@@ -388,16 +287,16 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         }
 
-        if (userRequest.getEmail() != null) {
+        if (userRequest.getEmail() != null && !userRequest.getEmail().isBlank()) {
             user.setEmail(userRequest.getEmail());
         }
-        if (userRequest.getPhone() != null) {
+        if (userRequest.getPhone() != null && !userRequest.getPhone().isBlank()) {
             user.setPhone(userRequest.getPhone());
         }
-        if (userRequest.getPassword() != null) {
+        if (userRequest.getPassword() != null && !userRequest.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(userRequest.getPassword()));
         }
-        if (userRequest.getRole() != null) {
+        if (userRequest.getRole() != null && !userRequest.getRole().isBlank()) {
             // Convert all roles to uppercase
             String normalizedRole = userRequest.getRole().toUpperCase();
 
@@ -415,37 +314,146 @@ public class AuthServiceImpl implements AuthService {
         }
 
 
-        User savedUser = userRepository.save(user);
+        // Rest Call To Company Service to check if Company exists or Not
+        String url = "http://company-service/company-service/domain-name/" + userRequest.getCompanyDomain();
+        boolean isCompanyExists = false;
 
-        if (userRequest.getRole() != null || userRequest.getEmail() != null) {
+        System.out.println("Company Service is being called.....");
+        ResponseEntity<Company> responseEntity = null;
+        Company company = null;
+        try {
+            // Perform the HTTP GET request and map the response to Company
+            responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Company.class);
+            System.out.println("Company Service has been called.....");
 
-            revokeAllPreviousValidTokens(savedUser);
+            if (responseEntity.getStatusCode().is2xxSuccessful()) {
+                company = responseEntity.getBody();
+                if (company != null) {
+                    isCompanyExists = true;
+                } else {
+                    System.out.println("No company data found.");
+                }
+            } else {
+                // Handle non-2xx HTTP status codes
+                System.out.println("Failed to fetch company data. HTTP status: " + responseEntity.getStatusCode());
+                handleNon2xxStatus((HttpStatus) responseEntity.getStatusCode());
+            }
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // Get the response body (JSON) from the exception
+            String responseBody = e.getResponseBodyAsString();
 
-            String accessToken = jwtUtils.generateAccessTokenWithCompanyDomain(user.getEmail(), user.getRole().name(), user.getCompanyDomain());
-            String refreshToken = jwtUtils.generateRefreshTokenWithCompanyDomain(user.getEmail(), user.getRole().name(), user.getCompanyDomain());
+            // Parse the response body (which is a JSON string)
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = null;
+            try {
+                jsonNode = objectMapper.readTree(responseBody);
+            } catch (JsonProcessingException ex) {
+                log.error("Failed to parse response body: {}", ex.getMessage());
+            }
 
-            Token token = Token.builder()
-                    .id(UUID.randomUUID().toString())
-                    .user(savedUser)
-                    .token(accessToken)
-                    .isRevoked(false)
-                    .isExpired(false)
-                    .tokenType(TokenType.BEARER)
-                    .build();
+            if (jsonNode != null) {
+                String message = jsonNode.get("message").asText();
+                String status = jsonNode.get("status").asText().substring(0, 3);
 
-            tokenRepository.save(token);
+                HttpStatus httpStatus = null;
+                try {
+                    // Check if the extracted status is numeric, then convert it to HttpStatus
+                    if (status.matches("\\d{3}")) {
+                        int statusCode = Integer.parseInt(status);  // Convert to integer
+                        httpStatus = HttpStatus.resolve(statusCode);  // Get HttpStatus from status code
+                    } else {
+                        httpStatus = HttpStatus.valueOf(status);  // If it's a name like "NOT_FOUND"
+                    }
+                } catch (IllegalArgumentException e2) {
+                    log.error("Invalid status '{}' found", status);
+                }
 
+                log.error("Parsed message: {}", message);
+                log.error("Parsed status: {}", status);
+                log.error(message, httpStatus);
+
+                // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                throw new ClientException(message, httpStatus);
+            } else {
+                log.error("Failed to parse JSON response body.");
+                throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+
+        if (isCompanyExists) {
+            user.setCompanyDomain(company.getDomain());
+            User savedUser = userRepository.save(user);
+
+            if (userRequest.getRole() != null || userRequest.getEmail() != null) {
+
+                revokeAllPreviousValidTokens(savedUser);
+
+                String accessToken = jwtUtils.generateAccessTokenWithCompanyDomain(user.getEmail(), user.getRole().name(), user.getCompanyDomain());
+                String refreshToken = jwtUtils.generateRefreshTokenWithCompanyDomain(user.getEmail(), user.getRole().name(), user.getCompanyDomain());
+
+                Token token = Token.builder()
+                        .id(UUID.randomUUID().toString())
+                        .user(savedUser)
+                        .token(accessToken)
+                        .isRevoked(false)
+                        .isExpired(false)
+                        .tokenType(TokenType.BEARER)
+                        .build();
+
+                tokenRepository.save(token);
+
+                return AuthResponse.builder()
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .status(HttpStatus.CREATED)
+                        .build();
+            }
             return AuthResponse.builder()
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
+                    .status(HttpStatus.OK)
+                    .message("User Updated Successfully !")
                     .build();
         }
 
+
         return AuthResponse.builder()
-                .status(HttpStatus.OK)
-                .message("User updated successfully")
+                .message("Company with domain name: " + userRequest.getCompanyDomain() + " does not exist.")
+                .status(HttpStatus.NOT_FOUND)
                 .build();
     }
+
+
+    // Fallback method for when the company service call fails
+    private AuthResponse companyServiceFallback(String emailId, UserRequest userRequest, Throwable throwable) {
+        // If the cause of the failure is a ClientException, rethrow it
+        if (throwable instanceof ClientException) {
+            throw (ClientException) throwable;  // Propagate the original ClientException
+        }
+        return AuthResponse.builder()
+                .message("Company service is unavailable at the moment. Please try again later.")
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .build();
+    }
+
+    // Handle non-2xx HTTP status codes
+    private AuthResponse handleNon2xxStatus(HttpStatus status) {
+        if (status.is4xxClientError()) {
+            return AuthResponse.builder()
+                    .message("Client error occurred: " + status.getReasonPhrase())
+                    .status(status)
+                    .build();
+        } else if (status.is5xxServerError()) {
+            return AuthResponse.builder()
+                    .message("Server error occurred: " + status.getReasonPhrase())
+                    .status(status)
+                    .build();
+        } else {
+            return AuthResponse.builder()
+                    .message("Unexpected error occurred: " + status.getReasonPhrase())
+                    .status(status)
+                    .build();
+        }
+    }
+
 
     @Override
     public AuthResponse getUserDetailsByEmailId(String emailId) {
