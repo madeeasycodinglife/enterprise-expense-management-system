@@ -20,11 +20,10 @@ import com.madeeasy.service.AuthService;
 import com.madeeasy.util.JwtUtils;
 import com.madeeasy.vo.Company;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -53,6 +52,7 @@ public class AuthServiceImpl implements AuthService {
     private final TokenRepository tokenRepository;
     private final AuthenticationManager authenticationManager;
     private final RestTemplate restTemplate;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     public AuthResponse singUp(AuthRequest authRequest) {
@@ -423,6 +423,18 @@ public class AuthServiceImpl implements AuthService {
         }
 
 
+        // Check for the custom header to skip company service check
+        String companyServiceHeader = httpServletRequest.getHeader("X-Company-Service");
+
+        if (companyServiceHeader != null && companyServiceHeader.equals("expense-tracker-app")) {
+            user.setCompanyDomain(userRequest.getCompanyDomain());
+            userRepository.save(user);
+
+            return AuthResponse.builder()
+                    .status(HttpStatus.OK)
+                    .message("User Updated Successfully !")
+                    .build();
+        }
         // Rest Call To Company Service to check if Company exists or Not
         String url = "http://company-service/company-service/domain-name/" + userRequest.getCompanyDomain();
         boolean isCompanyExists = false;
@@ -431,8 +443,19 @@ public class AuthServiceImpl implements AuthService {
         ResponseEntity<Company> responseEntity = null;
         Company company = null;
         try {
+            // Get the access token from request headers
+            String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+            String accessToken = authHeader.substring("Bearer ".length());
+
+            // Set up the authorization header with Bearer token
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + accessToken);
+
+            // Create an HttpEntity object with headers (no body for GET request)
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
             // Perform the HTTP GET request and map the response to Company
-            responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Company.class);
+            responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, entity, Company.class);
             System.out.println("Company Service has been called.....");
 
             if (responseEntity.getStatusCode().is2xxSuccessful()) {
