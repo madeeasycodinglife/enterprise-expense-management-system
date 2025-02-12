@@ -69,6 +69,115 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         }
 
+        if (authRequest.getCompanyDomain() != null && !authRequest.getCompanyDomain().isBlank()) {
+            // Rest Call To Company Service to check if Company exists or Not
+            String url = "http://company-service/company-service/domain-name/" + authRequest.getCompanyDomain();
+            boolean isCompanyExists = false;
+
+            System.out.println("Company Service is being called.....");
+            ResponseEntity<Company> responseEntity = null;
+            Company company = null;
+            try {
+                // Perform the HTTP GET request and map the response to Company
+                responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Company.class);
+                System.out.println("Company Service has been called.....");
+
+                if (responseEntity.getStatusCode().is2xxSuccessful()) {
+                    company = responseEntity.getBody();
+                    if (company != null) {
+                        isCompanyExists = true;
+                    } else {
+                        System.out.println("No company data found.");
+                    }
+                } else {
+                    // Handle non-2xx HTTP status codes
+                    System.out.println("Failed to fetch company data. HTTP status: " + responseEntity.getStatusCode());
+                    handleNon2xxStatus((HttpStatus) responseEntity.getStatusCode());
+                }
+            } catch (HttpClientErrorException | HttpServerErrorException e) {
+                // Get the response body (JSON) from the exception
+                String responseBody = e.getResponseBodyAsString();
+
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
+                }
+
+                if (jsonNode != null) {
+                    String message = jsonNode.get("message").asText();
+                    String status = jsonNode.get("status").asText().substring(0, 3);
+
+                    HttpStatus httpStatus = null;
+                    try {
+                        // Check if the extracted status is numeric, then convert it to HttpStatus
+                        if (status.matches("\\d{3}")) {
+                            int statusCode = Integer.parseInt(status);  // Convert to integer
+                            httpStatus = HttpStatus.resolve(statusCode);  // Get HttpStatus from status code
+                        } else {
+                            httpStatus = HttpStatus.valueOf(status);  // If it's a name like "NOT_FOUND"
+                        }
+                    } catch (IllegalArgumentException e2) {
+                        log.error("Invalid status '{}' found", status);
+                    }
+
+                    log.error("Parsed message: {}", message);
+                    log.error("Parsed status: {}", status);
+                    log.error(message, httpStatus);
+
+                    // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    log.error("Failed to parse JSON response body.");
+                    throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            }
+            User user = User.builder()
+                    .fullName(authRequest.getFullName())
+                    .email(authRequest.getEmail())
+                    .password(passwordEncoder.encode(authRequest.getPassword()))
+                    .phone(authRequest.getPhone())
+                    .isAccountNonExpired(true)
+                    .isAccountNonLocked(true)
+                    .isCredentialsNonExpired(true)
+                    .isEnabled(true)
+                    .role(Role.valueOf(normalizedRole))
+                    .build();
+            if (isCompanyExists) {
+                user.setCompanyDomain(company.getDomain());
+                User savedUser = userRepository.save(user);
+
+
+                String accessToken = jwtUtils.generateAccessTokenWithCompanyDomain(user.getEmail(), user.getRole().name(), user.getCompanyDomain());
+                String refreshToken = jwtUtils.generateRefreshTokenWithCompanyDomain(user.getEmail(), user.getRole().name(), user.getCompanyDomain());
+
+                Token token = Token.builder()
+                        .id(UUID.randomUUID().toString())
+                        .user(savedUser)
+                        .token(accessToken)
+                        .isRevoked(false)
+                        .isExpired(false)
+                        .tokenType(TokenType.BEARER)
+                        .build();
+
+                tokenRepository.save(token);
+
+                return AuthResponse.builder()
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .status(HttpStatus.CREATED)
+                        .build();
+            }
+            return AuthResponse.builder()
+                    .message("Company with domain name: " + authRequest.getCompanyDomain() + " does not exist.")
+                    .status(HttpStatus.NOT_FOUND)
+                    .build();
+
+        }
+
         User user = User.builder()
                 .fullName(authRequest.getFullName())
                 .email(authRequest.getEmail())

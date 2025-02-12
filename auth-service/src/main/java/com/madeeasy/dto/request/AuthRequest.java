@@ -36,7 +36,7 @@ public class AuthRequest {
             message = "Phone number must be between 10 and 13 digits long and may optionally start with a '+' sign."
     )
     private String phone;
-
+    private String companyDomain;
     @NotEmpty(message = "roles cannot be empty")
     private String role;
 }
