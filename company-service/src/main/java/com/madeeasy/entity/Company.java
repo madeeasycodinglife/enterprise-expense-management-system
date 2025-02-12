@@ -20,6 +20,10 @@ public class Company {
     )
     private Long id;
 
+
+    @Column(unique = true, nullable = false)
+    private String emailId;
+
     @Column(unique = true, nullable = false)
     private String name;
 

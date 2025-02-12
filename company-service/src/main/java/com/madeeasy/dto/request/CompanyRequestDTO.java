@@ -8,6 +8,9 @@ import lombok.Data;
 @Data
 public class CompanyRequestDTO {
 
+    @NotBlank(message = "EmailId is required and cannot be blank")
+    private String emailId;
+
     @NotBlank(message = "Company name is required and cannot be blank")
     private String name;
 

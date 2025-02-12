@@ -7,6 +7,7 @@ import lombok.Data;
 @Builder
 public class CompanyResponseDTO {
     private Long id;
+    private String emailId;
     private String name;
     private String domain;
     private Double autoApproveThreshold;
