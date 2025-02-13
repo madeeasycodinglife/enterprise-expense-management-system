@@ -78,8 +78,20 @@ public class AuthServiceImpl implements AuthService {
             ResponseEntity<Company> responseEntity = null;
             Company company = null;
             try {
+                // Get the access token from request headers
+                String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+                String accessToken = authHeader.substring("Bearer ".length());
+
+                // Set up the authorization header with Bearer token
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + accessToken);
+
+                // Create an HttpEntity object with headers (no body for GET request)
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+
                 // Perform the HTTP GET request and map the response to Company
-                responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, null, Company.class);
+                responseEntity = this.restTemplate.exchange(url, HttpMethod.GET, entity, Company.class);
+
                 System.out.println("Company Service has been called.....");
 
                 if (responseEntity.getStatusCode().is2xxSuccessful()) {
