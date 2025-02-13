@@ -411,59 +411,6 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
-    public List<ExpenseResponseDTO> getExpensesByCategoryAndCompanyDomain(String domainName, String category) {
-        // Step 1: Validate and map category to Enum
-        ExpenseCategory expenseCategory;
-        try {
-            expenseCategory = ExpenseCategory.valueOf(category.toUpperCase()); // Convert String to Enum
-        } catch (IllegalArgumentException e) {
-            // Log and handle invalid category
-            throw new RuntimeException("Invalid category: " + category);
-        }
-
-        // Step 2: Get company details from company service by domain name
-        Long companyId;
-        try {
-            String companyUrl = "http://localhost:8082/company-service/domain-name/" + domainName;
-            ResponseEntity<CompanyResponseDTO> companyResponse = restTemplate.exchange(companyUrl, HttpMethod.GET, null, CompanyResponseDTO.class);
-
-            if (companyResponse.getStatusCode() != HttpStatus.OK || companyResponse.getBody() == null) {
-                // Handle cases where the company service call fails or returns no data
-                throw new RuntimeException("Failed to retrieve company details for domain: " + domainName);
-            }
-
-            companyId = companyResponse.getBody().getId();
-        } catch (RestClientException e) {
-            // Handle any REST client exceptions (e.g., network issues, 404, etc.)
-            throw new RuntimeException("Error calling company service: " + e.getMessage(), e);
-        }
-
-        // Step 3: Fetch expenses from the database
-        List<Expense> expenseList;
-        try {
-            expenseList = expenseRepository.findExpensesByCategoryAndCompanyDomain(expenseCategory, domainName);
-        } catch (Exception e) {
-            // Handle any database-related issues
-            throw new RuntimeException("Error retrieving expenses from the database.", e);
-        }
-
-        // Step 4: Map expenses to ExpenseResponseDTO
-        return expenseList.stream().map(expense -> ExpenseResponseDTO.builder()
-                .id(expense.getId())
-                .employeeId(expense.getEmployeeId())
-                .companyDomain(expense.getCompanyDomain())
-                .title(expense.getTitle())
-                .description(expense.getDescription())
-                .amount(expense.getAmount())
-                .category(expense.getCategory())
-                .expenseDate(expense.getExpenseDate())
-                .status(expense.getStatus())
-                .build()
-        ).toList();
-    }
-
-
-    @Override
     public byte[] generateExpenseInvoice(String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth, String category) {
         // Convert the category to ExpenseCategory enum if not null
         ExpenseCategory categoryToUse = null;

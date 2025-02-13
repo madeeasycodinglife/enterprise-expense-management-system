@@ -87,6 +87,18 @@ security:
       - path: /expense-service/expenses/**
         method: GET
         roles: ${SECURITY_AUTHORIZATION_PATHS_ROLES:EMPLOYEE}
+      - path: /expense-service/monthly-trends/**
+        method: GET
+        roles: ${SECURITY_AUTHORIZATION_PATHS_ROLES:EMPLOYEE,ADMIN,FINANCE,MANAGER}
+
+      - path: /expense-service/yearly-trends/**
+        method: GET
+        roles: ${SECURITY_AUTHORIZATION_PATHS_ROLES:EMPLOYEE,ADMIN,FINANCE,MANAGER}
+
+      - path: /expense-service/category-breakdown/**
+        method: GET
+        roles: ${SECURITY_AUTHORIZATION_PATHS_ROLES:EMPLOYEE,ADMIN,FINANCE,MANAGER}
+
 
 eureka:
   client:

@@ -2,6 +2,9 @@ package com.madeeasy.controller;
 
 import com.madeeasy.dto.request.ExpensePartialRequestDTO;
 import com.madeeasy.dto.request.ExpenseRequestDTO;
+import com.madeeasy.dto.response.ExpenseCategoryBreakdown;
+import com.madeeasy.dto.response.ExpenseTrend;
+import com.madeeasy.entity.ExpenseCategory;
 import com.madeeasy.service.ExpenseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -15,6 +18,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping(path = "/expense-service")
@@ -89,5 +94,62 @@ public class ExpenseController {
         headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Expense_Invoice.pdf");
         headers.set(HttpHeaders.CONTENT_TYPE, "application/pdf");
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+    }
+
+    // 📌 1️⃣ Monthly Expense Trends Endpoint
+    @GetMapping("/monthly-trends/{companyDomain}")
+    public ResponseEntity<?> getMonthlyExpenseTrends(
+            @PathVariable String companyDomain,
+            @RequestParam(required = false) Integer startYear,
+            @RequestParam(required = false) Integer endYear,
+            @RequestParam(required = false) Integer startMonth,
+            @RequestParam(required = false) Integer endMonth) {
+
+        List<ExpenseTrend> monthlyExpenseTrends = this.expenseService.getMonthlyExpenseTrends(companyDomain, startYear, endYear, startMonth, endMonth);
+        if (!monthlyExpenseTrends.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.OK).body(monthlyExpenseTrends);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No Expense Trends are available.");
+    }
+
+    // 📌 2️⃣ Yearly Expense Trends Endpoint
+    @GetMapping("/yearly-trends/{companyDomain}")
+    public ResponseEntity<?> getYearlyExpenseTrends(
+            @PathVariable String companyDomain,
+            @RequestParam(required = false) Integer startYear,
+            @RequestParam(required = false) Integer endYear) {
+
+        List<ExpenseTrend> yearlyExpenseTrends = this.expenseService.getYearlyExpenseTrends(companyDomain, startYear, endYear);
+        if (!yearlyExpenseTrends.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.OK).body(yearlyExpenseTrends);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No Expense Trends are available.");
+
+    }
+
+    // 📌 3️⃣ Expense Category Breakdown Endpoint
+    @GetMapping("/category-breakdown/{companyDomain}")
+    public ResponseEntity<?> getCategoryBreakdown(
+            @PathVariable String companyDomain,
+            @RequestParam(required = false) Integer startYear,
+            @RequestParam(required = false) Integer endYear,
+            @RequestParam(required = false) Integer startMonth,
+            @RequestParam(required = false) Integer endMonth,
+            @RequestParam(required = false) String category) {
+
+        ExpenseCategory categoryEnum = null;
+        if (category != null) {
+            try {
+                categoryEnum = ExpenseCategory.valueOf(category.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid category provided.");
+            }
+        }
+        List<ExpenseCategoryBreakdown> expenseBreakdownByCategory = this.expenseService.getExpenseBreakdownByCategory(companyDomain, startYear, endYear, startMonth, endMonth, categoryEnum);
+        if (!expenseBreakdownByCategory.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.OK).body(expenseBreakdownByCategory);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No expense breakdown found for the given criteria.");
+
     }
 }
