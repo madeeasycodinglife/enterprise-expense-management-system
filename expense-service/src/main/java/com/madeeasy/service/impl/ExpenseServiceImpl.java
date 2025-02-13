@@ -291,6 +291,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     // Fallback method for circuit breaker with specific service failure messages
     public void fallbackMethod(ExpenseRequestDTO expenseRequestDTO, Throwable t) {
         log.error("Circuit breaker triggered: {}", t.getMessage());
+        log.error("Error : {}", t);
 
         if (t instanceof ClientException) {
             throw (ClientException) t;  // Propagate the original ClientException (method -> fallback-> Exception Handler)

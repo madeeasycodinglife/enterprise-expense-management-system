@@ -235,6 +235,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                         .approverRole("AUTO_APPROVER")
                         .approvedBy(emailId)
                         .status(ApprovalStatus.APPROVED)
+                        .expenseDate(expenseRequestDTO.getExpenseDate())
                         .approvalInitiationDate(LocalDateTime.now())
                         .approvalCompletionDate(LocalDateTime.now())
                         .build();
@@ -311,6 +312,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                         .approverRole("MANAGER")
                         .approvedBy(managerEmail)
                         .status(ApprovalStatus.PENDING)
+                        .expenseDate(expenseRequestDTO.getExpenseDate())
                         .approvalInitiationDate(LocalDateTime.now())
                         .build();
                 this.approvalRepository.save(approval);
@@ -390,6 +392,14 @@ public class ApprovalServiceImpl implements ApprovalService {
             }
         }
 
+    }
+
+    @Override
+    public List<Approval> getApprovals(String companyDomain, Integer startYear, Integer endYear, Integer startMonth, Integer endMonth) {
+        log.info("Fetching approvals for company: {} from Year: {} Month: {} to Year: {} Month: {}",
+                companyDomain, startYear, startMonth, endYear, endMonth);
+
+        return approvalRepository.findApprovalsWithFilters(companyDomain, startYear, endYear, startMonth, endMonth);
     }
 
 
@@ -600,6 +610,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .approverRole("FINANCE")
                     .approvedBy(financeEmail)
                     .status(ApprovalStatus.PENDING)
+                    .expenseDate(currentApproval.getExpenseDate())
                     .approvalInitiationDate(LocalDateTime.now())
                     .build();
             this.approvalRepository.save(finaceApproval);
@@ -702,6 +713,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .approverRole("ADMIN")
                     .approvedBy(adminEmail)
                     .status(ApprovalStatus.PENDING)
+                    .expenseDate(currentApproval.getExpenseDate())
                     .approvalInitiationDate(LocalDateTime.now())
                     .build();
             this.approvalRepository.save(finaceApproval);

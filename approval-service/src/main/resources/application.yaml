@@ -31,6 +31,9 @@ security:
       - path: /approval-service/ask-for-approve
         method: POST
         roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE}
+      - path: /approval-service/get-approvals/**
+        method: GET
+        roles: ${SECURITY_AUTHORIZATION_PATHS_SIGNUP_ROLES:EMPLOYEE,ADMIN,FINANCE,MANAGER}
 
 resilience4j:
   retry:
