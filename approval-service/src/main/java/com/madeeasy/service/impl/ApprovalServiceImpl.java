@@ -238,6 +238,10 @@ public class ApprovalServiceImpl implements ApprovalService {
                         .expenseDate(expenseRequestDTO.getExpenseDate())
                         .approvalInitiationDate(LocalDateTime.now())
                         .approvalCompletionDate(LocalDateTime.now())
+                        .title(expenseRequestDTO.getTitle())
+                        .description(expenseRequestDTO.getDescription())
+                        .amount(expenseRequestDTO.getAmount())
+                        .category(expenseRequestDTO.getCategory())
                         .build();
                 // Save the expense to the database
                 this.approvalRepository.save(approval);
@@ -314,6 +318,10 @@ public class ApprovalServiceImpl implements ApprovalService {
                         .status(ApprovalStatus.PENDING)
                         .expenseDate(expenseRequestDTO.getExpenseDate())
                         .approvalInitiationDate(LocalDateTime.now())
+                        .title(expenseRequestDTO.getTitle())
+                        .description(expenseRequestDTO.getDescription())
+                        .amount(expenseRequestDTO.getAmount())
+                        .category(expenseRequestDTO.getCategory())
                         .build();
                 this.approvalRepository.save(approval);
             }
@@ -612,6 +620,10 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .status(ApprovalStatus.PENDING)
                     .expenseDate(currentApproval.getExpenseDate())
                     .approvalInitiationDate(LocalDateTime.now())
+                    .title(currentApproval.getTitle())
+                    .description(currentApproval.getDescription())
+                    .amount(currentApproval.getAmount())
+                    .category(currentApproval.getCategory())
                     .build();
             this.approvalRepository.save(finaceApproval);
             sendNextApproval(expenseId, title, description, amount, category, expenseDate, accessToken, financeEmail, "FINANCE");
@@ -715,6 +727,10 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .status(ApprovalStatus.PENDING)
                     .expenseDate(currentApproval.getExpenseDate())
                     .approvalInitiationDate(LocalDateTime.now())
+                    .title(currentApproval.getTitle())
+                    .description(currentApproval.getDescription())
+                    .amount(currentApproval.getAmount())
+                    .category(currentApproval.getCategory())
                     .build();
             this.approvalRepository.save(finaceApproval);
             // Approve and send to Admin
