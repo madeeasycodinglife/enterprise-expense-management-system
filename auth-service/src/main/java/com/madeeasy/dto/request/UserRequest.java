@@ -16,7 +16,7 @@ public class UserRequest {
     @Nullable
     private String fullName;
     @Email(message = "email should be valid")
-    @Nullable
+    @NotBlank(message = "Email Is Required")
     private String email;
     @Pattern(
             regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{8,}$",

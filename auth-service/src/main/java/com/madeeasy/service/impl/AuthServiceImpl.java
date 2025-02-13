@@ -359,7 +359,7 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("UserRequest : {}", userRequest);
         // Check if an ADMIN user already exists with the same companyDomain
-        userRepository.findByCompanyDomainAndAdminRole(userRequest.getCompanyDomain(), Role.ADMIN)
+        userRepository.findByCompanyDomainAndAdminRole(userRequest.getCompanyDomain(), Role.ADMIN, userRequest.getEmail())
                 .ifPresent(existingAdmin -> {
                     throw new ClientException("An ADMIN user already exists with the same company domain.", HttpStatus.CONFLICT);
                 });

@@ -56,6 +56,7 @@ public class CompanyServiceImpl implements CompanyService {
         String authUrlToUpdateUser = "http://auth-service/auth-service/partial-update/" + companyRequestDTO.getEmailId();
         try {
             UserRequest userRequest = UserRequest.builder()
+                    .email(companyRequestDTO.getEmailId())
                     .companyDomain(companyRequestDTO.getDomain())
                     .build();
             // Create an HttpEntity with the request body (UserRequest) and headers
