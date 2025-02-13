@@ -33,7 +33,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayOutputStream;
@@ -143,83 +142,77 @@ public class ExpenseServiceImpl implements ExpenseService {
             expense.setAmount(expenseRequestDTO.getAmount());
             expense.setCategory(expenseRequestDTO.getCategory());
             expense.setExpenseDate(expenseRequestDTO.getExpenseDate());
+            expense.setSubmissionDate(LocalDateTime.now());
 
-            if (expenseRequestDTO.getAmount().compareTo(BigDecimal.valueOf(companyResponse.getAutoApproveThreshold())) <= 0) {
-                // Auto-approve expense
-                expense.setStatus(ExpenseStatus.APPROVED);
-                // Save the expense to the database
-                expenseRepository.save(expense);
-                log.info("Expense auto-approved: {} by user {}", expenseRequestDTO.getAmount(), userId);
-            } else {
-                // Requires multi-level approval
-                expense.setStatus(ExpenseStatus.SUBMITTED);
-                // Save the expense to the database
-                expenseRepository.save(expense);
-                // Construct the ApprovalRequestDTO object
-                ApprovalRequestDTO approvalRequestDTO = ApprovalRequestDTO.builder()
-                        .expenseId(expense.getId())
-                        .companyDomain(expense.getCompanyDomain())
-                        .title(expense.getTitle())
-                        .description(expense.getDescription())
-                        .amount(expense.getAmount())
-                        .category(expense.getCategory())
-                        .expenseDate(expense.getExpenseDate())
-                        .build();
+            // Requires multi-level approval
+            expense.setStatus(ExpenseStatus.SUBMITTED);
+            // Save the expense to the database
+            expenseRepository.save(expense);
+            // Construct the ApprovalRequestDTO object
+            ApprovalRequestDTO approvalRequestDTO = ApprovalRequestDTO.builder()
+                    .expenseId(expense.getId())
+                    .companyDomain(expense.getCompanyDomain())
+                    .title(expense.getTitle())
+                    .description(expense.getDescription())
+                    .amount(expense.getAmount())
+                    .category(expense.getCategory())
+                    .expenseDate(expense.getExpenseDate())
+                    .build();
 
-                // Set up the headers (set content type as JSON)
-                HttpHeaders headers = new HttpHeaders();
-                headers.set(HttpHeaders.CONTENT_TYPE, String.valueOf(MediaType.APPLICATION_JSON));
-                headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken); // Assuming authorization header is needed
+            // Set up the headers (set content type as JSON)
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.CONTENT_TYPE, String.valueOf(MediaType.APPLICATION_JSON));
+            headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken); // Assuming authorization header is needed
 
-                // Create an HttpEntity with the body and headers
-                HttpEntity<ApprovalRequestDTO> requestEntity = new HttpEntity<>(approvalRequestDTO, headers);
+            // Create an HttpEntity with the body and headers
+            HttpEntity<ApprovalRequestDTO> requestEntity = new HttpEntity<>(approvalRequestDTO, headers);
 
-                // Make the POST request (assuming the endpoint expects a POST request)
-                String approvalUrl = "http://approval-service/approval-service/ask-for-approve";
-                ResponseEntity<Void> response = null;
+            // Make the POST request (assuming the endpoint expects a POST request)
+            String approvalUrl = "http://approval-service/approval-service/ask-for-approve";
+            ResponseEntity<Void> response = null;
+            try {
+                response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
+
+                if (response.getStatusCode() == HttpStatus.OK) {
+                    log.info("Approval request sent successfully.");
+                } else {
+                    log.error("Failed to send approval request: {}", response.getStatusCode());
+                }
+            } catch (HttpClientErrorException | HttpServerErrorException e) {
+                String responseBody = e.getResponseBodyAsString();
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
                 try {
-                    response = restTemplate.exchange(approvalUrl, HttpMethod.POST, requestEntity, Void.class);
-
-                    if (response.getStatusCode() == HttpStatus.OK) {
-                        log.info("Approval request sent successfully.");
-                    } else {
-                        log.error("Failed to send approval request: {}", response.getStatusCode());
-                    }
-                } catch (HttpClientErrorException | HttpServerErrorException e) {
-                    String responseBody = e.getResponseBodyAsString();
-                    // Parse the response body (which is a JSON string)
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    JsonNode jsonNode = null;
-                    try {
-                        jsonNode = objectMapper.readTree(responseBody);
-                    } catch (JsonProcessingException ex) {
-                        log.error("Failed to parse response body: {}", ex.getMessage());
-                    }
-
-                    if (jsonNode != null) {
-                        String message = jsonNode.get("message").asText();
-                        String status = jsonNode.get("status").asText();
-
-                        HttpStatus httpStatus;
-                        try {
-                            httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
-                        } catch (IllegalArgumentException e2) {
-                            log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
-                            httpStatus = HttpStatus.UNAUTHORIZED;
-                        }
-
-                        log.error("Parsed message: {}", message);
-                        log.error("Parsed status: {}", status);
-
-                        // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
-                        throw new ClientException(message, httpStatus);
-                    } else {
-                        log.error("Failed to parse JSON response body.");
-                        throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
-                    }
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
                 }
 
+                if (jsonNode != null) {
+                    String message = jsonNode.get("message").asText();
+                    String status = jsonNode.get("status").asText();
+
+                    HttpStatus httpStatus;
+                    try {
+                        httpStatus = HttpStatus.valueOf(status); // Convert status string to HttpStatus
+                    } catch (IllegalArgumentException e2) {
+                        log.error("Invalid status '{}' found, defaulting to HttpStatus.UNAUTHORIZED", status);
+                        httpStatus = HttpStatus.UNAUTHORIZED;
+                    }
+
+                    log.error("Parsed message: {}", message);
+                    log.error("Parsed status: {}", status);
+
+                    // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                    throw new ClientException(message, httpStatus);
+                } else {
+                    log.error("Failed to parse JSON response body.");
+                    throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
             }
+
+
         } catch (HttpClientErrorException.Unauthorized e) {
             log.error("Authorization failed: {}", e.getResponseBodyAsString());
 

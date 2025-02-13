@@ -50,4 +50,7 @@ public class Expense extends AuditModel implements Serializable {
 
     @Column(nullable = false)
     private LocalDateTime expenseDate;
+
+    @Column(nullable = false)
+    private LocalDateTime submissionDate;
 }

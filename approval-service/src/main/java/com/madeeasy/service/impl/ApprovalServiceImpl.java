@@ -12,6 +12,7 @@ import com.madeeasy.exception.ResourceException;
 import com.madeeasy.repository.ApprovalRepository;
 import com.madeeasy.service.ApprovalService;
 import com.madeeasy.util.JwtUtils;
+import com.madeeasy.vo.CompanyResponseDTO;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,13 +26,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -159,6 +160,8 @@ public class ApprovalServiceImpl implements ApprovalService {
     @CircuitBreaker(name = "approvalServiceCircuitBreaker", fallbackMethod = "circuitBreakerFallback")
     @Override
     public void askForApproval(ExpenseRequestDTO expenseRequestDTO) throws UnsupportedEncodingException {
+
+
         String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = authHeader.substring("Bearer ".length());
 
@@ -178,77 +181,141 @@ public class ApprovalServiceImpl implements ApprovalService {
             UserResponse userResponse = userResponseList.getFirst();  // Get the first element from the list
             String managerEmail = userResponse.getEmail();  // Access the email property of the first user
 
-            // Prepare the expense details as query parameters
-            String expenseDetails = "expenseId=" + URLEncoder.encode(String.valueOf(expenseRequestDTO.getExpenseId()), StandardCharsets.UTF_8) +
-                    "&title=" + URLEncoder.encode(expenseRequestDTO.getTitle(), StandardCharsets.UTF_8) +
-                    "&description=" + URLEncoder.encode(expenseRequestDTO.getDescription(), StandardCharsets.UTF_8) +
-                    "&amount=" + URLEncoder.encode(String.valueOf(expenseRequestDTO.getAmount()), StandardCharsets.UTF_8) +
-                    "&category=" + URLEncoder.encode(String.valueOf(expenseRequestDTO.getCategory()), StandardCharsets.UTF_8) +
-                    "&expenseDate=" + URLEncoder.encode(expenseRequestDTO.getExpenseDate().toString(), StandardCharsets.UTF_8) +
-                    "&accessToken=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8) +
-                    "&emailId=" + URLEncoder.encode(managerEmail, StandardCharsets.UTF_8);// in future call to auth-service and by company domain get manager emailId and set here
-            // Get healthy approval service URLs
-            List<String> healthyServiceUrls = getApprovalServiceUrls();
 
-            if (healthyServiceUrls.isEmpty()) {
-                // Handle error (e.g., no healthy instances available)
-                return;
-            }
-
-            // Pick a random URL from the healthy services list
-            String approvalServiceUrl = healthyServiceUrls.getFirst();  // You can add more logic for load balancing if needed
+            // call first company service and get approval threshold start
 
 
-            // Send email to Manager for approval
-//            String approveLink = "http://approval-service/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
-//            String rejectLink = "http://approval-service/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
-            // Construct the approval and rejection links
-            String approveLink = "http://" + approvalServiceUrl + "/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
-            String rejectLink = "http://" + approvalServiceUrl + "/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
-
-
-            // Create the request body, including expense details and links
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("expenseDetails", expenseDetails);  // Sending full expense details
-            requestBody.put("approveLink", approveLink);        // Approval link
-            requestBody.put("rejectLink", rejectLink);          // Rejection link
-
-            // Rest call to notification-services to send email
-            String notificationUrl = "http://notification-service/notification-service/";
+            // Rest call to company-service to get company domain
+            String companyUrlToGetCompany = "http://company-service/company-service/domain-name/" + userResponse.getCompanyDomain();
+            CompanyResponseDTO companyResponse = null;
             try {
-                // Prepare headers
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("Authorization", "Bearer " + accessToken);  // Add the accessToken as Bearer token
-
-                // Your logic to call the notification service
-                // Wrap the body and headers into an HttpEntity
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-                restTemplate.exchange(notificationUrl, HttpMethod.POST, entity, Void.class);
+                companyResponse = restTemplate.exchange(companyUrlToGetCompany, HttpMethod.GET,
+                        new HttpEntity<>(createHeaders(accessToken)), CompanyResponseDTO.class).getBody();
             } catch (HttpClientErrorException | HttpServerErrorException e) {
-                // Log the error details
-                log.error("Error while calling notification service: {}", e.getMessage());
-
-                // Check if the status is 503 (Service Unavailable) and handle it
-                if (e.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
-                    // Return a more specific error response
-                    throw new ResourceException("Notification service is currently unavailable. Please try again later.");
+                String responseBody = e.getResponseBodyAsString();
+                // Parse the response body (which is a JSON string)
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = null;
+                try {
+                    jsonNode = objectMapper.readTree(responseBody);
+                } catch (JsonProcessingException ex) {
+                    log.error("Failed to parse response body: {}", ex.getMessage());
                 }
 
-                // If it’s some other type of error, you can throw a different exception or handle accordingly
-                throw new ResourceException("An error occurred while accessing the notification service.");
+                if (jsonNode != null) {
+                    String message = jsonNode.get("message").asText();
+                    String statusStr = jsonNode.get("status").asText().substring(0, 3);
+
+                    // Convert the status code to integer and map it to HttpStatus
+                    int statusCode = Integer.parseInt(statusStr);
+
+                    // Use HttpStatus.valueOf() with the numeric status code value
+                    HttpStatus status = HttpStatus.resolve(statusCode);
+
+                    log.error("Parsed message: {}", message);
+                    log.error("Parsed status: {}", status);
+
+                    // Re-throw ClientException so that it will be caught by the GlobalExceptionHandler
+                    throw new ClientException(message, status);
+                } else {
+                    log.error("Failed to parse JSON response body.");
+                    throw new ClientException("Authorization failed, unable to parse error response", HttpStatus.INTERNAL_SERVER_ERROR);
+                }
             }
 
+            if (companyResponse == null) {
+                throw new IllegalStateException("Unable to fetch company information.");
+            }
+            if (expenseRequestDTO.getAmount().compareTo(BigDecimal.valueOf(companyResponse.getAutoApproveThreshold())) <= 0) {
+                String emailId = jwtUtils.getUserName(accessToken);
+                // Auto-approve expense
+                Approval approval = Approval.builder()
+                        .expenseId(expenseRequestDTO.getExpenseId())
+                        .companyDomain(expenseRequestDTO.getCompanyDomain())
+                        .approverRole("AUTO_APPROVER")
+                        .approvedBy(emailId)
+                        .status(ApprovalStatus.APPROVED)
+                        .approvalInitiationDate(LocalDateTime.now())
+                        .approvalCompletionDate(LocalDateTime.now())
+                        .build();
+                // Save the expense to the database
+                this.approvalRepository.save(approval);
+                log.info("Expense auto-approved: {} by user {}", expenseRequestDTO.getAmount(), userResponse.getEmail());
+            } else {
+                // Prepare the expense details as query parameters
+                String expenseDetails = "expenseId=" + URLEncoder.encode(String.valueOf(expenseRequestDTO.getExpenseId()), StandardCharsets.UTF_8) +
+                        "&title=" + URLEncoder.encode(expenseRequestDTO.getTitle(), StandardCharsets.UTF_8) +
+                        "&description=" + URLEncoder.encode(expenseRequestDTO.getDescription(), StandardCharsets.UTF_8) +
+                        "&amount=" + URLEncoder.encode(String.valueOf(expenseRequestDTO.getAmount()), StandardCharsets.UTF_8) +
+                        "&category=" + URLEncoder.encode(String.valueOf(expenseRequestDTO.getCategory()), StandardCharsets.UTF_8) +
+                        "&expenseDate=" + URLEncoder.encode(expenseRequestDTO.getExpenseDate().toString(), StandardCharsets.UTF_8) +
+                        "&accessToken=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8) +
+                        "&emailId=" + URLEncoder.encode(managerEmail, StandardCharsets.UTF_8);// in future call to auth-service and by company domain get manager emailId and set here
+                // Get healthy approval service URLs
+                List<String> healthyServiceUrls = getApprovalServiceUrls();
 
-            // Save the approval request in the database (Approval table)
-            Approval approval = Approval.builder()
-                    .expenseId(expenseRequestDTO.getExpenseId())
-                    .companyDomain(expenseRequestDTO.getCompanyDomain())
-                    .approverRole("MANAGER")
-                    .approvedBy(managerEmail)
-                    .status(ApprovalStatus.PENDING)
-                    .build();
-            this.approvalRepository.save(approval);
+                if (healthyServiceUrls.isEmpty()) {
+                    // Handle error (e.g., no healthy instances available)
+                    return;
+                }
+
+                // Pick a random URL from the healthy services list
+                String approvalServiceUrl = healthyServiceUrls.getFirst();  // You can add more logic for load balancing if needed
+
+
+                // Send email to Manager for approval
+//            String approveLink = "http://approval-service/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+//            String rejectLink = "http://approval-service/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+                // Construct the approval and rejection links
+                String approveLink = "http://" + approvalServiceUrl + "/approval-service/approve?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+                String rejectLink = "http://" + approvalServiceUrl + "/approval-service/reject?" + expenseDetails + "&emailId=" + managerEmail + "&role=MANAGER";
+
+
+                // Create the request body, including expense details and links
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("expenseDetails", expenseDetails);  // Sending full expense details
+                requestBody.put("approveLink", approveLink);        // Approval link
+                requestBody.put("rejectLink", rejectLink);          // Rejection link
+
+                // Rest call to notification-services to send email
+                String notificationUrl = "http://notification-service/notification-service/";
+                try {
+                    // Prepare headers
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.set("Authorization", "Bearer " + accessToken);  // Add the accessToken as Bearer token
+
+                    // Your logic to call the notification service
+                    // Wrap the body and headers into an HttpEntity
+                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+                    restTemplate.exchange(notificationUrl, HttpMethod.POST, entity, Void.class);
+                } catch (HttpClientErrorException | HttpServerErrorException e) {
+                    // Log the error details
+                    log.error("Error while calling notification service: {}", e.getMessage());
+
+                    // Check if the status is 503 (Service Unavailable) and handle it
+                    if (e.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+                        // Return a more specific error response
+                        throw new ResourceException("Notification service is currently unavailable. Please try again later.");
+                    }
+
+                    // If it’s some other type of error, you can throw a different exception or handle accordingly
+                    throw new ResourceException("An error occurred while accessing the notification service.");
+                }
+
+
+                // Save the approval request in the database (Approval table)
+                Approval approval = Approval.builder()
+                        .expenseId(expenseRequestDTO.getExpenseId())
+                        .companyDomain(expenseRequestDTO.getCompanyDomain())
+                        .approverRole("MANAGER")
+                        .approvedBy(managerEmail)
+                        .status(ApprovalStatus.PENDING)
+                        .approvalInitiationDate(LocalDateTime.now())
+                        .build();
+                this.approvalRepository.save(approval);
+            }
+            // call first company service and get approval threshold end
 
         } catch (HttpClientErrorException.Unauthorized e) {
             log.error("Authorization failed: {}", e.getResponseBodyAsString());
@@ -436,6 +503,7 @@ public class ApprovalServiceImpl implements ApprovalService {
          */
         if (role.equals("MANAGER")) {
             currentApproval.setStatus(ApprovalStatus.APPROVED);
+            currentApproval.setApprovalCompletionDate(LocalDateTime.now());
             this.approvalRepository.save(currentApproval);
             // rest call with authorization herader to get user details by company domain and role
             String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "FINANCE";
@@ -532,11 +600,13 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .approverRole("FINANCE")
                     .approvedBy(financeEmail)
                     .status(ApprovalStatus.PENDING)
+                    .approvalInitiationDate(LocalDateTime.now())
                     .build();
             this.approvalRepository.save(finaceApproval);
             sendNextApproval(expenseId, title, description, amount, category, expenseDate, accessToken, financeEmail, "FINANCE");
         } else if (role.equals("FINANCE")) {
             currentApproval.setStatus(ApprovalStatus.APPROVED);
+            currentApproval.setApprovalCompletionDate(LocalDateTime.now());
             this.approvalRepository.save(currentApproval);
             // rest call with authorization herader to get user details by company domain and role
             String authUrlToGetUser = "http://auth-service/auth-service/get-user/" + currentApproval.getCompanyDomain() + "/" + "ADMIN";
@@ -632,6 +702,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .approverRole("ADMIN")
                     .approvedBy(adminEmail)
                     .status(ApprovalStatus.PENDING)
+                    .approvalInitiationDate(LocalDateTime.now())
                     .build();
             this.approvalRepository.save(finaceApproval);
             // Approve and send to Admin
@@ -639,6 +710,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         } else if (role.equals("ADMIN")) {
             // Final approval
             currentApproval.setStatus(ApprovalStatus.APPROVED);
+            currentApproval.setApprovalCompletionDate(LocalDateTime.now());
             approvalRepository.save(currentApproval);
         }
     }

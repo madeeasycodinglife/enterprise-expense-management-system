@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Entity
 @Builder
@@ -37,4 +39,10 @@ public class Approval {
 
     @Column(nullable = false)
     private String approvedBy; // Email of approver
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime approvalInitiationDate;
+
+    @Column
+    private LocalDateTime approvalCompletionDate;
 }
