@@ -45,6 +45,16 @@ public class ApprovalRestController {
         return ResponseEntity.ok("Approval request sent successfully.");
     }
 
+    @Operation(
+            summary = "Retrieve Approvals for a Company",
+            description = "Fetches a list of approval requests for the specified company, filtered by the provided year and month ranges."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Approvals retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid query parameters", content = @Content),
+            @ApiResponse(responseCode = "404", description = "No approvals found for the specified criteria", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
+    })
     @GetMapping("/get-approvals/{companyDomain}")
     public ResponseEntity<?> getApprovals(
             @PathVariable String companyDomain,
