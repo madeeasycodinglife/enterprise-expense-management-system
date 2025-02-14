@@ -852,12 +852,15 @@ public class ApprovalServiceImpl implements ApprovalService {
         if (role.equals("MANAGER")) {
             // Update the status to REJECTED
             currentApproval.setStatus(ApprovalStatus.REJECTED);
+            currentApproval.setApprovalCompletionDate(LocalDateTime.now());
             approvalRepository.save(currentApproval);
         } else if (role.equals("FINANCE")) {
             currentApproval.setStatus(ApprovalStatus.REJECTED);
+            currentApproval.setApprovalCompletionDate(LocalDateTime.now());
             this.approvalRepository.save(currentApproval);
         } else if (role.equals("ADMIN")) {
             currentApproval.setStatus(ApprovalStatus.REJECTED);
+            currentApproval.setApprovalCompletionDate(LocalDateTime.now());
             this.approvalRepository.save(currentApproval);
         }
     }
