@@ -11,6 +11,7 @@ import com.madeeasy.entity.Company;
 import com.madeeasy.exception.ClientException;
 import com.madeeasy.repository.CompanyRepository;
 import com.madeeasy.service.CompanyService;
+import com.madeeasy.util.JwtUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final CompanyRepository companyRepository;
     private final RestTemplate restTemplate;
     private final HttpServletRequest httpServletRequest;
+    private final JwtUtils jwtUtils;
 
     @Override
     public CompanyResponseDTO registerCompany(CompanyRequestDTO companyRequestDTO) {
@@ -52,11 +54,13 @@ public class CompanyServiceImpl implements CompanyService {
         String authHeader = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = authHeader.substring("Bearer ".length());
 
+        String emailId = this.jwtUtils.getUserName(accessToken);
+
         // Rest call to auth-service to get user details by email
-        String authUrlToUpdateUser = "http://auth-service/auth-service/partial-update/" + companyRequestDTO.getEmailId();
+        String authUrlToUpdateUser = "http://auth-service/auth-service/partial-update/" + emailId;
         try {
             UserRequest userRequest = UserRequest.builder()
-                    .email(companyRequestDTO.getEmailId())
+                    .email(emailId)
                     .companyDomain(companyRequestDTO.getDomain())
                     .build();
             // Create an HttpEntity with the request body (UserRequest) and headers

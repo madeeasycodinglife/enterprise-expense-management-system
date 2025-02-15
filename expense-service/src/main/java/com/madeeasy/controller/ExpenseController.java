@@ -97,7 +97,17 @@ public class ExpenseController {
     }
 
     // 📌 1️⃣ Monthly Expense Trends Endpoint
+    @Operation(
+            summary = "Get monthly expense trends",
+            description = "Fetches monthly expense trends based on optional filters for year and month.",
+            tags = {"Expense Trends"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Monthly expense trends retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "No expense trends found")
+    })
     @GetMapping("/monthly-trends/{companyDomain}")
+    @SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> getMonthlyExpenseTrends(
             @PathVariable String companyDomain,
             @RequestParam(required = false) Integer startYear,
@@ -113,7 +123,17 @@ public class ExpenseController {
     }
 
     // 📌 2️⃣ Yearly Expense Trends Endpoint
+    @Operation(
+            summary = "Get yearly expense trends",
+            description = "Fetches yearly expense trends based on optional filters for the year.",
+            tags = {"Expense Trends"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Yearly expense trends retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "No expense trends found")
+    })
     @GetMapping("/yearly-trends/{companyDomain}")
+    @SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> getYearlyExpenseTrends(
             @PathVariable String companyDomain,
             @RequestParam(required = false) Integer startYear,
@@ -124,11 +144,21 @@ public class ExpenseController {
             return ResponseEntity.status(HttpStatus.OK).body(yearlyExpenseTrends);
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No Expense Trends are available.");
-
     }
 
     // 📌 3️⃣ Expense Category Breakdown Endpoint
+    @Operation(
+            summary = "Get expense category breakdown",
+            description = "Fetches the expense breakdown by category based on optional filters for year, month, and category.",
+            tags = {"Expense Breakdown"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Expense category breakdown retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid category provided"),
+            @ApiResponse(responseCode = "404", description = "No expense breakdown found for the given criteria")
+    })
     @GetMapping("/category-breakdown/{companyDomain}")
+    @SecurityRequirement(name = "Bearer Authentication")
     public ResponseEntity<?> getCategoryBreakdown(
             @PathVariable String companyDomain,
             @RequestParam(required = false) Integer startYear,
@@ -150,6 +180,6 @@ public class ExpenseController {
             return ResponseEntity.status(HttpStatus.OK).body(expenseBreakdownByCategory);
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No expense breakdown found for the given criteria.");
-
     }
+
 }
