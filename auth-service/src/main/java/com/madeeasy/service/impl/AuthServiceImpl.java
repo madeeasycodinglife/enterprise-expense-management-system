@@ -3,10 +3,7 @@ package com.madeeasy.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.madeeasy.dto.request.AuthRequest;
-import com.madeeasy.dto.request.LogOutRequest;
-import com.madeeasy.dto.request.SignInRequestDTO;
-import com.madeeasy.dto.request.UserRequest;
+import com.madeeasy.dto.request.*;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.entity.Role;
 import com.madeeasy.entity.Token;
@@ -610,6 +607,19 @@ public class AuthServiceImpl implements AuthService {
                 .companyDomain(user.getCompanyDomain())
                 .role(user.getRole().name())
                 .build();
+    }
+
+    @Override
+    public void updateEmployeeDomains(DomainUpdateRequest domainUpdateRequest) {
+        // Get all users with the old domain
+        List<User> users = userRepository.findByCompanyDomain(domainUpdateRequest.getOldDomain());
+
+        // Update the domain for all users
+        for (User user : users) {
+            user.setCompanyDomain(domainUpdateRequest.getNewDomain());
+        }
+        // Save the updated users
+        userRepository.saveAll(users);
     }
 
     @Override

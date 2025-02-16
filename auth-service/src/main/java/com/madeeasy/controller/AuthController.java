@@ -1,9 +1,6 @@
 package com.madeeasy.controller;
 
-import com.madeeasy.dto.request.AuthRequest;
-import com.madeeasy.dto.request.LogOutRequest;
-import com.madeeasy.dto.request.SignInRequestDTO;
-import com.madeeasy.dto.request.UserRequest;
+import com.madeeasy.dto.request.*;
 import com.madeeasy.dto.response.AuthResponse;
 import com.madeeasy.service.AuthService;
 import com.madeeasy.util.ValidationUtils;
@@ -195,4 +192,27 @@ public class AuthController {
             @PathVariable String role) {
         return ResponseEntity.ok(authService.getUserDetailsByCompanyDomainAndRole(companyDomain, role.toUpperCase()));
     }
+
+    @Tag(
+            name = "User Management",
+            description = "Manages user-related operations such as fetching user details, updating profiles, and retrieving users based on company and role. These endpoints allow administrators to handle user profiles, including partial updates and retrieval of users for a specific company or role."
+    )
+    @Operation(
+            summary = "Update Users' Company Domain",
+            description = "Updates the company domain for all users in the system. This operation allows the administrator to update the domain for users based on a specific old domain and replace it with a new one.",
+            tags = {"User Management"}
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Successfully updated the domain for users."),
+            @ApiResponse(responseCode = "400", description = "Invalid request data", content = @Content(schema = @Schema(implementation = String.class))),
+            @ApiResponse(responseCode = "404", description = "Users with the specified old domain not found", content = @Content(schema = @Schema(implementation = String.class)))
+    })
+    @SecurityRequirement(name = "Bearer Authentication")
+    @PatchMapping("/update-domain")
+    public ResponseEntity<Void> updateEmployeeDomains(@Valid @RequestBody DomainUpdateRequest request) {
+        this.authService.updateEmployeeDomains(request);
+        return ResponseEntity.ok().build();
+    }
+
+
 }
