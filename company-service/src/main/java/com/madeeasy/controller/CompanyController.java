@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "Bearer Authentication") // Global security for all endpoints
 @Tag(
         name = "Company Management",
-        description = "API for managing company data, including registering a new company and retrieving company details by domain."
+        description = "API for managing company data, including registering a new company , retrieving  and Updating company details by domain."
 )
 @Validated
 public class CompanyController {
@@ -43,7 +43,7 @@ public class CompanyController {
     })
     @PostMapping(path = "/register")
     public ResponseEntity<CompanyResponseDTO> registerCompany(
-           @Valid @RequestBody CompanyRequestDTO request) {
+            @Valid @RequestBody CompanyRequestDTO request) {
         CompanyResponseDTO company = companyService.registerCompany(request);
         return ResponseEntity.ok(company);
     }
@@ -64,5 +64,25 @@ public class CompanyController {
             @PathVariable String domain) {
         CompanyResponseDTO companyByDomainName = this.companyService.getCompanyByDomainName(domain);
         return ResponseEntity.ok(companyByDomainName);
+    }
+
+    @Operation(
+            summary = "Update company details",
+            description = "Updates the company details for the given domain and returns the updated information."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Company details updated successfully",
+                    content = @Content(schema = @Schema(implementation = CompanyResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Company not found for the given domain", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Invalid update data", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
+    })
+    @PatchMapping(path = "/domain-name/{domain}")
+    public ResponseEntity<CompanyResponseDTO> updateCompany(
+            @Parameter(description = "Company domain name", example = "example.com")
+            @PathVariable String domain,
+            @Valid @RequestBody CompanyRequestDTO request) {
+        CompanyResponseDTO updatedCompany = companyService.updateCompany(domain, request);
+        return ResponseEntity.ok(updatedCompany);
     }
 }

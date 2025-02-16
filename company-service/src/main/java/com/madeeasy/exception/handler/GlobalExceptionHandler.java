@@ -1,6 +1,8 @@
 package com.madeeasy.exception.handler;
 
 import com.madeeasy.exception.ClientException;
+import com.madeeasy.exception.ResourceNotFoundException;
+import com.madeeasy.exception.UnauthorizedAccessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
@@ -137,4 +139,48 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(e.getStatus()).body(response);
     }
 
+    // Handle UnauthorizedAccessException
+    @ExceptionHandler(UnauthorizedAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
+        // Log the error (optional)
+        // Example: log.error("Unauthorized access: {}", ex.getMessage());
+
+        // Build the error response as a Map
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", ex.getStatus().value());  // Numeric value of HTTP status code
+        response.put("message", ex.getMessage());
+        response.put("timestamp", System.currentTimeMillis());  // Timestamp of the error
+
+        return new ResponseEntity<>(response, ex.getStatus());
+    }
+
+    // Handle ResourceNotFoundException
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        // Log the error (optional)
+        // Example: log.error("Resource not found: {}", ex.getMessage());
+
+        // Build the error response as a Map
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", ex.getStatus().value());  // Numeric value of HTTP status code
+        response.put("message", ex.getMessage());
+        response.put("timestamp", System.currentTimeMillis());  // Timestamp of the error
+
+        return new ResponseEntity<>(response, ex.getStatus());
+    }
+
+    // Handle any other uncaught exceptions
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex) {
+        // Log the error (optional)
+        // Example: log.error("Unexpected error: {}", ex.getMessage());
+
+        // Build a generic error response in case of unexpected errors
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());  // 500 status code
+        response.put("message", "An unexpected error occurred. Please try again later.");
+        response.put("timestamp", System.currentTimeMillis());
+
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }

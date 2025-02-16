@@ -17,6 +17,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     boolean existsByPhone(String phone);
+
+    List<User> findByCompanyDomain(String companyDomain);
+
     // Custom query to find a user by companyDomain and role
     @Query("SELECT u FROM User u WHERE u.companyDomain = :companyDomain AND u.role = :role AND u.email = :email")
     Optional<User> findByCompanyDomainAndAdminRole(String companyDomain, Role role, String email);
