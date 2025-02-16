@@ -25,13 +25,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -131,6 +134,30 @@ public class NotificationServiceImpl implements NotificationService {
                 category       // Add category here
         );
 
+        // Retry sending email if no internet connection initially
+        if (!isInternetAvailable()) {
+            log.info("No internet connection. Retrying...");
+            int retryCount = 0;
+            int maxRetries = 5;
+            long retryDelay = 5; // Start with 5 seconds
+
+            while (retryCount < maxRetries && !isInternetAvailable()) {
+                try {
+                    log.info("Retrying to send email... Attempt: {}", retryCount + 1);
+                    TimeUnit.SECONDS.sleep(retryDelay);  // Exponential backoff logic can be applied here (increase delay on each retry)
+                    retryDelay *= 2; // Double the delay after each retry
+                    retryCount++;
+                } catch (InterruptedException e) {
+                    log.error("Retry interrupted", e);
+                }
+            }
+
+            if (!isInternetAvailable()) {
+                log.error("Failed to connect to the internet after {} retries", maxRetries);
+                // Optionally: Set a fallback or notify the user if internet connection is not available
+                return;
+            }
+        }
 
         try {
             sendEmail(emailId, "🚀 Expense Approval Required", emailContent);
@@ -140,6 +167,17 @@ public class NotificationServiceImpl implements NotificationService {
         // Save to Audit Database after sending the email
         saveNotificationAudit(expenseId, title, description, category, emailId, role);
         log.info("Approval Email sent to : {}", emailId);
+    }
+
+    // Method to check if internet connection is available
+    private boolean isInternetAvailable() {
+        try {
+            // Try to reach a public server to check internet connectivity (Google DNS server in this case)
+            InetAddress address = InetAddress.getByName("8.8.8.8");
+            return address.isReachable(5000); // Timeout after 5 second
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public String getAccessToken(HttpServletRequest request) {
