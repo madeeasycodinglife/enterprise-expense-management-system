@@ -1,6 +1,6 @@
 # Enterprise Expense Management System
 
-![Enterprise Expense Management System](file:///C:/internships/zidio/project-images/frontend-home-page.png)
+![Enterprise Expense Management System](./images/frontend-home-page.png)
 
 A **Spring Boot Microservices-based** system for managing enterprise expenses with **JWT authentication** and **global Swagger documentation**.
 
