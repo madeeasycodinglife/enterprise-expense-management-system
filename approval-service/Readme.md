@@ -66,8 +66,10 @@ Bootstrap styling.
   ![success-image](../images/approval-image.png)
 - **Rejection**
   ![rejection-image](../images/rejection-images.png)
-- **Warning (Already Responded / An Error Occurred)**
+- **Warning (An Error Occurred)**
   ![warning-image](../images/notification-warning.png)
+- **Warning (Already Responded)**
+  ![warning-image](../images/approval-already-responsed.png)
 - **Dynamic Expense Information Display**
   ![dynamic-expense-info](../images/status.png)
 - **Auto-Close Button for Pop-ups**
