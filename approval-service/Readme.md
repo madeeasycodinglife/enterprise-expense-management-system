@@ -52,8 +52,11 @@ eyJhbGciOiJIUzM4NCJ9.eyJqdGkiOiI4MmQ0ZDBmOS01MTlhLTRkMGMtOWNjYi05MzZjNWE2ZDBmYTE
 ## 📑 UI (Thymeleaf Template)
 The service includes a **Thymeleaf-based UI** under `resources/templates` for displaying approval statuses with Bootstrap styling.
 - **Success, Rejection, and Already Responded UI Pages**
-![success-image](../images/approval-swagger.png)
+- **Success**
+![success-image](../images/approval-image.png)
+- **Rejection**
 ![rejection-image](../images/rejection-images.png)
+- **Warning (Already Responded)**
 ![warning-image](../images/notification-warning.png)
 - **Dynamic Expense Information Display**
 ![dynamic-expense-info](../images/status.png)
