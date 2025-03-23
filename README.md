@@ -58,6 +58,8 @@ http://localhost:8080/swagger-ui.html
 ```sh
 http://localhost:9411
 ```
+![Zipkin](./images/zipkin-1.png)
+![Zipkin](./images/zipkin-2.png)
 
 ## ⚠️ Important Notes
 - **Simplified Design**: The application does not manage complex relationships like **Many-to-Many (MTM)**. For instance, a user can only register and manage one company and its employees. Developers interested in supporting multiple companies and associations can fork and extend the functionality as needed. This will be added in a future private project.
