@@ -51,6 +51,8 @@ cd enterprise-expense-management-system
 ```sh
 http://localhost:8080/swagger-ui.html
 ```
+![Swagger UI](./images/swagger-auth-1.png)
+![Swagger UI](./images/swagger-auth-2.png)
 
 4️⃣ **Zipkin UI** for tracing
 ```sh
